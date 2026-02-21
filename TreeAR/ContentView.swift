@@ -36,8 +36,15 @@ struct IntroductionViewRepresentable: UIViewControllerRepresentable {
 
 struct ARViewRepresentable: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> ARViewController {
-        ARViewController()
+        // Composition root: build the dependency graph here, keeping
+        // all concrete types out of the ViewController and SwiftUI layer.
+        let audioService  = AudioService()
+        let sceneDirector = ARSceneDirector()
+        let coordinator   = ARExperienceCoordinator(sceneDirector: sceneDirector,
+                                                    audioService: audioService)
+        return ARViewController(coordinator: coordinator)
     }
+
     func updateUIViewController(_ uiViewController: ARViewController, context: Context) {}
 }
 
