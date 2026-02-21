@@ -9,35 +9,23 @@ import SceneKit
 
 extension SCNAction {
 
-    static let fadeInSequenceAction: SCNAction = .sequence([
-        .fadeOpacity(to: 1, duration: 2),
-        .wait(duration: 2)
-    ])
+    // MARK: - Grass Growing
 
-    static let fadeOutSequenceAction: SCNAction = .sequence([
-        .fadeOpacity(to: 0, duration: 1)
-    ])
-
-    static let fadeOutRemoveAction: SCNAction = .sequence([
-        .fadeOpacity(to: 0, duration: 1),
-        .removeFromParentNode()
-    ])
-
-    // MARK: - Grass growing
     static func grassGrowSequenceAction(_ node: SCNNode) -> SCNAction {
         let yScale = CGFloat(node.scale.y)
         return .sequence([
-            .scale(to: 0,          duration: 0),
+            .scale(to: 0,              duration: 0),
             .fadeIn(duration: 0),
-            .scale(to: yScale * 1.25, duration: 2),
-            .scale(to: yScale * 1.0,  duration: 1)
+            .scale(to: yScale * 1.25,  duration: 2),
+            .scale(to: yScale * 1.0,   duration: 1)
         ])
     }
 
     static let grassesRotation: SCNAction =
         .rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 2.5)
 
-    // MARK: - Grass shrinking
+    // MARK: - Grass Shrinking
+
     static func grassShrinkSequenceAction(_ node: SCNNode) -> SCNAction {
         let yScale = CGFloat(node.scale.y)
         return .sequence([

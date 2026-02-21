@@ -37,8 +37,8 @@ final class BossCombatManager {
 
     // MARK: - Configuration
 
-    let maxHP: Int = 300
-    private(set) var currentHP: Int = 300
+    let maxHP: Int = 600
+    private(set) var currentHP: Int = 600
 
     /// Distance beyond which the boss taunts instead of attacking.
     let tauntThreshold: Float = 4.0

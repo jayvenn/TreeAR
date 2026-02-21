@@ -20,9 +20,9 @@ enum BossPhase: Int, Comparable {
     /// Idle duration range between attacks narrows in later phases.
     var idleDurationRange: ClosedRange<TimeInterval> {
         switch self {
-        case .phase1: return 1.8...2.5
-        case .phase2: return 1.2...2.0
-        case .phase3: return 0.8...1.5
+        case .phase1: return 2.2...3.0
+        case .phase2: return 1.5...2.3
+        case .phase3: return 1.0...1.8
         }
     }
 }

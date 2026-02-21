@@ -14,7 +14,7 @@ struct PlayerCombatState {
 
     let maxHP: Int = 100
     let attackDamage: Int = 10
-    let attackCooldown: TimeInterval = 0.4
+    let attackCooldown: TimeInterval = 0.55
     /// Horizontal meters from boss center within which taps deal damage.
     let attackRange: Float = 1.5
     let invulnerabilityDuration: TimeInterval = 1.0

@@ -7,16 +7,23 @@
 
 import SceneKit
 
-/// Procedural SceneKit model for the V1 boss "The Hollow" — a stone golem.
+/// Procedural SceneKit model for "The Hollow" — a towering armored stone demon.
 ///
-/// Built from primitive geometry so no external .scn file is required.
-/// Replace with a real model by swapping `buildModel()` for a scene file load.
+/// Built entirely from SceneKit primitives with layered geometry, emission materials
+/// for glowing runes, and particle systems for ambient dark energy.
 enum HollowBoss {
 
-    /// Root node name used for hit-testing identification.
     static let nodeName = "hollow_boss"
-    static let height: Float = 2.0
+    static let height: Float = 2.2
     static let boundingRadius: Float = 0.6
+
+    // MARK: - Colors
+
+    private static let obsidian     = UIColor(red: 0.10, green: 0.08, blue: 0.12, alpha: 1)
+    private static let darkStone    = UIColor(red: 0.15, green: 0.13, blue: 0.16, alpha: 1)
+    private static let runeColor    = UIColor(red: 1.0,  green: 0.25, blue: 0.08, alpha: 1)
+    private static let coreColor    = UIColor(red: 1.0,  green: 0.35, blue: 0.05, alpha: 1)
+    private static let eyeColor     = UIColor(red: 1.0,  green: 0.15, blue: 0.0,  alpha: 1)
 
     // MARK: - Model Construction
 
@@ -24,163 +31,377 @@ enum HollowBoss {
         let root = SCNNode()
         root.name = nodeName
 
-        let stoneMaterial = makeStoneMaterial()
-        let glowMaterial = makeGlowMaterial()
-
-        // Torso
-        let torso = SCNNode(geometry: SCNBox(width: 0.7, height: 0.9, length: 0.5, chamferRadius: 0.08))
-        torso.geometry?.firstMaterial = stoneMaterial
-        torso.position = SCNVector3(0, 1.0, 0)
-        root.addChildNode(torso)
-
-        // Head
-        let head = SCNNode(geometry: SCNSphere(radius: 0.25))
-        head.geometry?.firstMaterial = stoneMaterial
-        head.position = SCNVector3(0, 1.7, 0)
-        root.addChildNode(head)
-
-        // Eyes (glowing)
-        for xOffset: Float in [-0.08, 0.08] {
-            let eye = SCNNode(geometry: SCNSphere(radius: 0.04))
-            eye.geometry?.firstMaterial = glowMaterial
-            eye.position = SCNVector3(xOffset, 1.75, 0.22)
-            eye.name = "eye"
-            root.addChildNode(eye)
-        }
-
-        // Arms
-        for side: Float in [-1, 1] {
-            let arm = SCNNode(geometry: SCNCapsule(capRadius: 0.1, height: 0.8))
-            arm.geometry?.firstMaterial = stoneMaterial
-            arm.position = SCNVector3(side * 0.5, 1.05, 0)
-            arm.eulerAngles.z = side * 0.15
-            arm.name = side < 0 ? "arm_left" : "arm_right"
-            root.addChildNode(arm)
-        }
-
-        // Legs
-        for side: Float in [-1, 1] {
-            let leg = SCNNode(geometry: SCNCapsule(capRadius: 0.12, height: 0.7))
-            leg.geometry?.firstMaterial = stoneMaterial
-            leg.position = SCNVector3(side * 0.2, 0.35, 0)
-            leg.name = side < 0 ? "leg_left" : "leg_right"
-            root.addChildNode(leg)
-        }
+        buildTorso(on: root)
+        buildHead(on: root)
+        buildArms(on: root)
+        buildLegs(on: root)
+        buildCore(on: root)
+        buildShoulderArmor(on: root)
+        addAmbientParticles(on: root)
+        addIdleBreathing(on: root)
 
         return root
+    }
+
+    // MARK: - Body Parts
+
+    private static func buildTorso(on root: SCNNode) {
+        let torso = SCNNode(geometry: SCNBox(width: 0.8, height: 1.0, length: 0.55, chamferRadius: 0.05))
+        torso.geometry?.firstMaterial = makeArmorMaterial()
+        torso.position = SCNVector3(0, 1.1, 0)
+        torso.name = "torso"
+        root.addChildNode(torso)
+
+        let waist = SCNNode(geometry: SCNBox(width: 0.6, height: 0.25, length: 0.45, chamferRadius: 0.04))
+        waist.geometry?.firstMaterial = makeStoneMaterial()
+        waist.position = SCNVector3(0, 0.55, 0)
+        root.addChildNode(waist)
+
+        for xOff: Float in [-0.25, 0.0, 0.25] {
+            let rune = SCNNode(geometry: SCNBox(width: 0.06, height: 0.18, length: 0.01, chamferRadius: 0.01))
+            rune.geometry?.firstMaterial = makeRuneMaterial()
+            rune.position = SCNVector3(xOff, 1.15, 0.28)
+            rune.name = "rune"
+            root.addChildNode(rune)
+        }
+    }
+
+    private static func buildHead(on root: SCNNode) {
+        let skull = SCNNode(geometry: SCNBox(width: 0.3, height: 0.32, length: 0.28, chamferRadius: 0.06))
+        skull.geometry?.firstMaterial = makeArmorMaterial()
+        skull.position = SCNVector3(0, 1.82, 0)
+        skull.name = "head"
+        root.addChildNode(skull)
+
+        let helmet = SCNNode(geometry: SCNBox(width: 0.34, height: 0.12, length: 0.32, chamferRadius: 0.03))
+        helmet.geometry?.firstMaterial = makeArmorMaterial()
+        helmet.position = SCNVector3(0, 1.95, 0)
+        root.addChildNode(helmet)
+
+        for xOff: Float in [-0.07, 0.07] {
+            let eye = SCNNode(geometry: SCNSphere(radius: 0.035))
+            eye.geometry?.firstMaterial = makeEyeMaterial()
+            eye.position = SCNVector3(xOff, 1.85, 0.15)
+            eye.name = "eye"
+            root.addChildNode(eye)
+
+            let glow = SCNLight()
+            glow.type = .omni
+            glow.color = eyeColor
+            glow.intensity = 200
+            glow.attenuationStartDistance = 0
+            glow.attenuationEndDistance = 0.5
+            eye.light = glow
+        }
+
+        let jaw = SCNNode(geometry: SCNBox(width: 0.22, height: 0.08, length: 0.18, chamferRadius: 0.02))
+        jaw.geometry?.firstMaterial = makeStoneMaterial()
+        jaw.position = SCNVector3(0, 1.7, 0.04)
+        root.addChildNode(jaw)
+
+        for side: Float in [-1, 1] {
+            let horn = SCNNode(geometry: SCNCone(topRadius: 0, bottomRadius: 0.04, height: 0.2))
+            horn.geometry?.firstMaterial = makeArmorMaterial()
+            horn.position = SCNVector3(side * 0.16, 2.0, -0.05)
+            horn.eulerAngles = SCNVector3(0.3, 0, side * -0.4)
+            root.addChildNode(horn)
+        }
+    }
+
+    private static func buildArms(on root: SCNNode) {
+        for side: Float in [-1, 1] {
+            let shoulder = SCNNode(geometry: SCNSphere(radius: 0.12))
+            shoulder.geometry?.firstMaterial = makeArmorMaterial()
+            shoulder.position = SCNVector3(side * 0.52, 1.45, 0)
+            root.addChildNode(shoulder)
+
+            let upperArm = SCNNode(geometry: SCNCapsule(capRadius: 0.09, height: 0.5))
+            upperArm.geometry?.firstMaterial = makeStoneMaterial()
+            upperArm.position = SCNVector3(0, -0.2, 0)
+            shoulder.addChildNode(upperArm)
+
+            let forearm = SCNNode(geometry: SCNCapsule(capRadius: 0.08, height: 0.45))
+            forearm.geometry?.firstMaterial = makeArmorMaterial()
+            forearm.position = SCNVector3(0, -0.45, 0)
+            shoulder.addChildNode(forearm)
+
+            let fist = SCNNode(geometry: SCNSphere(radius: 0.1))
+            fist.geometry?.firstMaterial = makeStoneMaterial()
+            fist.position = SCNVector3(0, -0.7, 0)
+            shoulder.addChildNode(fist)
+
+            let runeStrip = SCNNode(geometry: SCNBox(width: 0.03, height: 0.3, length: 0.01, chamferRadius: 0.005))
+            runeStrip.geometry?.firstMaterial = makeRuneMaterial()
+            runeStrip.position = SCNVector3(side * 0.08, -0.3, 0.08)
+            shoulder.addChildNode(runeStrip)
+
+            shoulder.name = side < 0 ? "arm_left" : "arm_right"
+            shoulder.eulerAngles.z = side * 0.12
+        }
+    }
+
+    private static func buildLegs(on root: SCNNode) {
+        for side: Float in [-1, 1] {
+            let hip = SCNNode()
+            hip.position = SCNVector3(side * 0.2, 0.4, 0)
+            hip.name = side < 0 ? "leg_left" : "leg_right"
+
+            let thigh = SCNNode(geometry: SCNCapsule(capRadius: 0.11, height: 0.45))
+            thigh.geometry?.firstMaterial = makeStoneMaterial()
+            thigh.position = SCNVector3(0, -0.05, 0)
+            hip.addChildNode(thigh)
+
+            let shin = SCNNode(geometry: SCNCapsule(capRadius: 0.1, height: 0.4))
+            shin.geometry?.firstMaterial = makeArmorMaterial()
+            shin.position = SCNVector3(0, -0.35, 0)
+            hip.addChildNode(shin)
+
+            let foot = SCNNode(geometry: SCNBox(width: 0.16, height: 0.06, length: 0.22, chamferRadius: 0.02))
+            foot.geometry?.firstMaterial = makeArmorMaterial()
+            foot.position = SCNVector3(0, -0.58, 0.04)
+            hip.addChildNode(foot)
+
+            root.addChildNode(hip)
+        }
+    }
+
+    private static func buildCore(on root: SCNNode) {
+        let core = SCNNode(geometry: SCNSphere(radius: 0.1))
+        core.geometry?.firstMaterial = makeCoreMaterial()
+        core.position = SCNVector3(0, 1.15, 0.29)
+        core.name = "core"
+        root.addChildNode(core)
+
+        let coreGlow = SCNLight()
+        coreGlow.type = .omni
+        coreGlow.color = coreColor
+        coreGlow.intensity = 400
+        coreGlow.attenuationStartDistance = 0
+        coreGlow.attenuationEndDistance = 1.0
+        core.light = coreGlow
+
+        let pulse = SCNAction.sequence([
+            .customAction(duration: 1.2) { node, elapsed in
+                let t = elapsed / 1.2
+                let intensity = 0.7 + sin(CGFloat(t) * .pi) * 0.3
+                node.geometry?.firstMaterial?.emission.intensity = intensity
+                node.light?.intensity = 300 + CGFloat(sin(Float(t) * .pi)) * 200
+            }
+        ])
+        core.runAction(.repeatForever(pulse))
+    }
+
+    private static func buildShoulderArmor(on root: SCNNode) {
+        for side: Float in [-1, 1] {
+            let plate = SCNNode(geometry: SCNBox(width: 0.22, height: 0.15, length: 0.2, chamferRadius: 0.03))
+            plate.geometry?.firstMaterial = makeArmorMaterial()
+            plate.position = SCNVector3(side * 0.52, 1.55, 0)
+            plate.eulerAngles.z = side * -0.3
+            root.addChildNode(plate)
+
+            let spike = SCNNode(geometry: SCNCone(topRadius: 0, bottomRadius: 0.035, height: 0.18))
+            spike.geometry?.firstMaterial = makeArmorMaterial()
+            spike.position = SCNVector3(side * 0.58, 1.62, 0)
+            spike.eulerAngles.z = side * -0.8
+            root.addChildNode(spike)
+        }
+    }
+
+    private static func addAmbientParticles(on root: SCNNode) {
+        let particleNode = SCNNode()
+        particleNode.position = SCNVector3(0, 1.1, 0)
+
+        let system = SCNParticleSystem()
+        system.birthRate = 15
+        system.particleLifeSpan = 2.0
+        system.particleLifeSpanVariation = 1.0
+        system.particleSize = 0.02
+        system.particleSizeVariation = 0.015
+        system.particleColor = runeColor.withAlphaComponent(0.6)
+        system.particleColorVariation = SCNVector4(0.1, 0.05, 0, 0.3)
+        system.emitterShape = SCNCylinder(radius: 0.6, height: 1.8)
+        system.spreadingAngle = 180
+        system.particleVelocity = 0.05
+        system.particleVelocityVariation = 0.03
+        system.particleAngularVelocity = 90
+        system.blendMode = .additive
+        system.isLightingEnabled = false
+
+        particleNode.addParticleSystem(system)
+        particleNode.name = "ambient_particles"
+        root.addChildNode(particleNode)
+    }
+
+    private static func addIdleBreathing(on root: SCNNode) {
+        let breathe = SCNAction.sequence([
+            .scale(to: 1.02, duration: 1.8),
+            .scale(to: 0.98, duration: 1.8)
+        ])
+        root.runAction(.repeatForever(breathe))
     }
 
     // MARK: - Materials
 
     private static func makeStoneMaterial() -> SCNMaterial {
         let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor(red: 0.35, green: 0.33, blue: 0.30, alpha: 1)
-        mat.roughness.contents = 0.9
-        mat.metalness.contents = 0.1
+        mat.diffuse.contents = darkStone
+        mat.roughness.contents = 0.85
+        mat.metalness.contents = 0.15
+        mat.normal.intensity = 0.8
         return mat
     }
 
-    private static func makeGlowMaterial() -> SCNMaterial {
+    private static func makeArmorMaterial() -> SCNMaterial {
         let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor.systemRed
-        mat.emission.contents = UIColor.systemRed
+        mat.diffuse.contents = obsidian
+        mat.roughness.contents = 0.6
+        mat.metalness.contents = 0.4
+        mat.specular.contents = UIColor(white: 0.3, alpha: 1)
+        return mat
+    }
+
+    private static func makeRuneMaterial() -> SCNMaterial {
+        let mat = SCNMaterial()
+        mat.diffuse.contents = runeColor
+        mat.emission.contents = runeColor
+        mat.emission.intensity = 1.5
         mat.lightingModel = .constant
         return mat
     }
 
-    // MARK: - Animations
+    private static func makeEyeMaterial() -> SCNMaterial {
+        let mat = SCNMaterial()
+        mat.diffuse.contents = eyeColor
+        mat.emission.contents = eyeColor
+        mat.emission.intensity = 2.5
+        mat.lightingModel = .constant
+        return mat
+    }
 
-    /// Boss rises from below the ground plane.
-    static func spawnAnimation(duration: TimeInterval = 2.5) -> SCNAction {
+    private static func makeCoreMaterial() -> SCNMaterial {
+        let mat = SCNMaterial()
+        mat.diffuse.contents = coreColor
+        mat.emission.contents = coreColor
+        mat.emission.intensity = 2.0
+        mat.lightingModel = .constant
+        mat.transparency = 0.85
+        return mat
+    }
+
+    // MARK: - Spawn
+
+    static func spawnAnimation(duration: TimeInterval = 3.5) -> SCNAction {
         let rise = SCNAction.move(by: SCNVector3(0, height, 0), duration: duration)
         rise.timingMode = .easeOut
-        let fade = SCNAction.fadeIn(duration: duration * 0.6)
-        return .group([rise, fade])
+        let fadeIn = SCNAction.fadeIn(duration: duration * 0.4)
+        let preScale = SCNAction.scale(to: 0.6, duration: 0)
+        let scaleUp = SCNAction.scale(to: 1.0, duration: duration * 0.7)
+        scaleUp.timingMode = .easeOut
+        return .group([rise, fadeIn, .sequence([preScale, scaleUp])])
     }
 
-    /// Both arms raise overhead (ground slam telegraph).
+    // MARK: - Attack Animations
+
     static func groundSlamTelegraphAnimation(duration: TimeInterval) -> (left: SCNAction, right: SCNAction) {
-        let raiseLeft = SCNAction.rotateTo(x: 0, y: 0, z: -.pi / 1.2, duration: duration)
-        raiseLeft.timingMode = .easeIn
-        let raiseRight = SCNAction.rotateTo(x: 0, y: 0, z: .pi / 1.2, duration: duration)
-        raiseRight.timingMode = .easeIn
-        return (raiseLeft, raiseRight)
+        let left = SCNAction.rotateTo(x: 0, y: 0, z: -.pi / 1.2, duration: duration)
+        left.timingMode = .easeIn
+        let right = SCNAction.rotateTo(x: 0, y: 0, z: .pi / 1.2, duration: duration)
+        right.timingMode = .easeIn
+        return (left, right)
     }
 
-    /// Arms slam down.
     static func groundSlamExecuteAnimation() -> (left: SCNAction, right: SCNAction) {
-        let slamLeft = SCNAction.rotateTo(x: 0, y: 0, z: 0.15, duration: 0.15)
-        slamLeft.timingMode = .easeIn
-        let slamRight = SCNAction.rotateTo(x: 0, y: 0, z: -0.15, duration: 0.15)
-        slamRight.timingMode = .easeIn
-        return (slamLeft, slamRight)
+        let left = SCNAction.rotateTo(x: 0, y: 0, z: 0.15, duration: 0.12)
+        left.timingMode = .easeIn
+        let right = SCNAction.rotateTo(x: 0, y: 0, z: -0.15, duration: 0.12)
+        right.timingMode = .easeIn
+        return (left, right)
     }
 
-    /// One arm pulls back then sweeps across.
     static func sweepTelegraphAnimation(duration: TimeInterval) -> SCNAction {
-        let pullBack = SCNAction.rotateTo(x: 0, y: .pi / 2, z: -.pi / 3, duration: duration)
-        pullBack.timingMode = .easeIn
-        return pullBack
+        let pull = SCNAction.rotateTo(x: 0, y: .pi / 2, z: -.pi / 3, duration: duration)
+        pull.timingMode = .easeIn
+        return pull
     }
 
     static func sweepExecuteAnimation() -> SCNAction {
-        let swing = SCNAction.rotateTo(x: 0, y: -.pi / 2, z: -.pi / 3, duration: 0.3)
+        let swing = SCNAction.rotateTo(x: 0, y: -.pi / 2, z: -.pi / 3, duration: 0.25)
         swing.timingMode = .easeOut
         return swing
     }
 
-    /// One leg lifts (stomp telegraph).
     static func stompTelegraphAnimation(duration: TimeInterval) -> SCNAction {
-        let lift = SCNAction.move(by: SCNVector3(0, 0.3, 0), duration: duration)
+        let lift = SCNAction.move(by: SCNVector3(0, 0.35, 0), duration: duration)
         lift.timingMode = .easeIn
         return lift
     }
 
     static func stompExecuteAnimation() -> SCNAction {
-        let slam = SCNAction.move(by: SCNVector3(0, -0.3, 0), duration: 0.12)
+        let slam = SCNAction.move(by: SCNVector3(0, -0.35, 0), duration: 0.1)
         slam.timingMode = .easeIn
         return slam
     }
 
-    /// Return arms/legs to neutral.
     static func resetPoseAnimation(duration: TimeInterval = 0.5) -> SCNAction {
         .rotateTo(x: 0, y: 0, z: 0, duration: duration)
     }
 
-    /// Boss flashes red (hit feedback).
+    // MARK: - Hit Feedback
+
     static func hitFlashAnimation() -> SCNAction {
-        let tint = SCNAction.customAction(duration: 0.2) { node, elapsed in
-            let fraction = elapsed / 0.2
-            let alpha = fraction < 0.5 ? fraction * 2 : (1 - fraction) * 2
-            node.geometry?.firstMaterial?.emission.contents = UIColor.red.withAlphaComponent(CGFloat(alpha) * 0.6)
+        let flash = SCNAction.customAction(duration: 0.15) { node, elapsed in
+            let t = elapsed / 0.15
+            let v = t < 0.5 ? t * 2 : (1 - t) * 2
+            node.geometry?.firstMaterial?.emission.contents = UIColor.white.withAlphaComponent(CGFloat(v) * 0.8)
         }
         let clear = SCNAction.customAction(duration: 0.01) { node, _ in
+            if node.name == "rune" || node.name == "eye" || node.name == "core" { return }
             node.geometry?.firstMaterial?.emission.contents = UIColor.black
         }
-        return .sequence([tint, clear])
+        return .sequence([flash, clear])
     }
 
-    /// Phase-transition enrage: eyes glow brighter, body tints slightly red.
+    static func hitStaggerAnimation() -> SCNAction {
+        let back = SCNAction.move(by: SCNVector3(0, 0, -0.03), duration: 0.06)
+        let fwd  = SCNAction.move(by: SCNVector3(0, 0,  0.03), duration: 0.12)
+        fwd.timingMode = .easeOut
+        return .sequence([back, fwd])
+    }
+
+    // MARK: - Phase Transitions
+
     static func enrageAnimation() -> SCNAction {
-        .customAction(duration: 1.0) { node, elapsed in
-            let frac = elapsed / 1.0
+        .customAction(duration: 1.5) { node, elapsed in
+            let t = elapsed / 1.5
             if node.name == "eye" {
-                let intensity = 1.0 + frac * 2.0
-                node.geometry?.firstMaterial?.emission.intensity = CGFloat(intensity)
+                node.geometry?.firstMaterial?.emission.intensity = CGFloat(2.5 + t * 3.0)
+            }
+            if node.name == "rune" {
+                node.geometry?.firstMaterial?.emission.intensity = CGFloat(1.5 + t * 2.0)
             }
         }
     }
 
-    /// Death animation: stagger, crack, dissolve.
-    static func deathAnimation(duration: TimeInterval = 3.0) -> SCNAction {
+    // MARK: - Death
+
+    static func deathAnimation(duration: TimeInterval = 4.0) -> SCNAction {
         let stagger = SCNAction.sequence([
-            .rotateBy(x: 0, y: 0, z: 0.1, duration: 0.3),
-            .rotateBy(x: 0, y: 0, z: -0.2, duration: 0.3),
-            .rotateBy(x: 0, y: 0, z: 0.1, duration: 0.3)
+            .rotateBy(x: 0, y: 0, z: 0.08, duration: 0.2),
+            .rotateBy(x: 0.05, y: 0, z: -0.16, duration: 0.3),
+            .rotateBy(x: -0.05, y: 0, z: 0.08, duration: 0.2),
+            .wait(duration: 0.3)
         ])
-        let sink = SCNAction.move(by: SCNVector3(0, -0.5, 0), duration: duration * 0.6)
-        sink.timingMode = .easeIn
-        let fade = SCNAction.fadeOut(duration: duration * 0.4)
-        return .sequence([stagger, .group([sink, fade])])
+        let runeFlare = SCNAction.customAction(duration: 1.0) { node, elapsed in
+            let t = elapsed / 1.0
+            if node.name == "rune" || node.name == "core" || node.name == "eye" {
+                node.geometry?.firstMaterial?.emission.intensity = CGFloat(3.0 + t * 5.0)
+            }
+        }
+        let collapse = SCNAction.group([
+            .move(by: SCNVector3(0, -0.8, 0), duration: duration * 0.5),
+            .fadeOut(duration: duration * 0.5),
+            .scale(to: 0.7, duration: duration * 0.5)
+        ])
+        return .sequence([stagger, runeFlare, collapse])
     }
 }

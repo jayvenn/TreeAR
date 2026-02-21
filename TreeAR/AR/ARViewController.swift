@@ -9,18 +9,6 @@ import UIKit
 import ARKit
 
 /// Thin presentation layer for the AR experience.
-///
-/// **Responsibilities (what this class does):**
-///   - Own and configure the `ARSCNView`.
-///   - Maintain the `instructionLabel` and `surfaceScanningView` overlays.
-///   - Bridge ARKit delegate callbacks → `ARExperienceViewModel`.
-///   - Translate ViewModel state changes → UI updates.
-///   - Present `CombatHUDView` during boss fight states.
-///
-/// **Non-responsibilities (what this class does NOT do):**
-///   - Manage SceneKit nodes.
-///   - Handle audio.
-///   - Contain any game-flow logic or boolean state flags.
 final class ARViewController: UIViewController {
 
     // MARK: - Dependencies
@@ -30,19 +18,20 @@ final class ARViewController: UIViewController {
     // MARK: - AR
 
     private let sceneView = ARSCNView(frame: .zero)
+    private var weaponAttached = false
 
     // MARK: - UI
 
     private lazy var instructionLabel: UILabel = {
         let label = UILabel()
         label.textAlignment          = .center
-        label.font                   = .systemFont(ofSize: 18, weight: .medium)
-        label.textColor              = .secondaryLabel
+        label.font                   = .systemFont(ofSize: 16, weight: .semibold)
+        label.textColor              = UIColor.white.withAlphaComponent(0.8)
         label.numberOfLines          = 2
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor     = 0.5
-        label.backgroundColor        = UIColor.white.withAlphaComponent(0.80)
-        label.layer.cornerRadius     = 12
+        label.backgroundColor        = UIColor.black.withAlphaComponent(0.35)
+        label.layer.cornerRadius     = 10
         label.layer.masksToBounds    = true
         label.alpha                  = 0
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -50,10 +39,10 @@ final class ARViewController: UIViewController {
     }()
 
     private lazy var surfaceScanningView: SurfaceScanningView = {
-        let view = SurfaceScanningView()
-        view.alpha = 0
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
+        let v = SurfaceScanningView()
+        v.alpha = 0
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
     }()
 
     private lazy var combatHUD: CombatHUDView = {
@@ -61,9 +50,7 @@ final class ARViewController: UIViewController {
         hud.translatesAutoresizingMaskIntoConstraints = false
         hud.alpha = 0
         hud.isUserInteractionEnabled = true
-        hud.onRetryTapped = { [weak self] in
-            self?.viewModel.handleRetry()
-        }
+        hud.onRetryTapped = { [weak self] in self?.viewModel.handleRetry() }
         return hud
     }()
 
@@ -106,15 +93,12 @@ final class ARViewController: UIViewController {
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = .horizontal
         config.environmentTexturing = .automatic
-
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
             config.frameSemantics.insert(.personSegmentationWithDepth)
         }
-
         sceneView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
     }
 
-    /// Disables further plane detection once a surface has been claimed.
     private func lockPlaneDetection() {
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = []
@@ -125,7 +109,7 @@ final class ARViewController: UIViewController {
     // MARK: - Setup
 
     private func setupSceneView() {
-        sceneView.delegate              = self
+        sceneView.delegate = self
         sceneView.autoenablesDefaultLighting = true
         view = sceneView
     }
@@ -141,40 +125,43 @@ final class ARViewController: UIViewController {
             surfaceScanningView.topAnchor.constraint(equalTo: view.topAnchor),
             surfaceScanningView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            instructionLabel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
-            instructionLabel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
+            instructionLabel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 40),
+            instructionLabel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -40),
             instructionLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            instructionLabel.heightAnchor.constraint(equalToConstant: 52),
+            instructionLabel.heightAnchor.constraint(equalToConstant: 44),
 
             combatHUD.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             combatHUD.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             combatHUD.topAnchor.constraint(equalTo: view.topAnchor),
-            combatHUD.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            combatHUD.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 
     private func setupTapGesture() {
-        let tap = UITapGestureRecognizer(target: self,
-                                         action: #selector(handleSceneViewTap(_:)))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         sceneView.addGestureRecognizer(tap)
+    }
+
+    // MARK: - Weapon Attachment
+
+    private func attachWeaponIfNeeded() {
+        guard !weaponAttached, let pov = sceneView.pointOfView else { return }
+        viewModel.sceneDirector.attachWeapon(to: pov)
+        weaponAttached = true
     }
 
     // MARK: - Tap Handling
 
-    @objc private func handleSceneViewTap(_ recognizer: UITapGestureRecognizer) {
+    @objc private func handleTap(_ r: UITapGestureRecognizer) {
         if viewModel.state.acceptsCombatTaps {
             viewModel.handleCombatTap()
             return
         }
+        if viewModel.state == .playerDefeated { return }
 
-        if viewModel.state == .playerDefeated {
-            return
-        }
-
-        let location = recognizer.location(in: sceneView)
-        guard let nodeName = viewModel.sceneDirector.hitNodeName(at: location,
-                                                                  in: sceneView) else { return }
-        viewModel.handleTap(on: nodeName)
+        let loc = r.location(in: sceneView)
+        guard let name = viewModel.sceneDirector.hitNodeName(at: loc, in: sceneView) else { return }
+        viewModel.handleTap(on: name)
     }
 
     // MARK: - UI Updates
@@ -184,26 +171,10 @@ final class ARViewController: UIViewController {
         instructionLabel.fadeIn()
     }
 
-    private func hideInstruction() {
-        instructionLabel.fadeOut()
-    }
-
-    private func showScanningOverlay() {
-        UIView.animate(withDuration: animationDuration) {
-            self.surfaceScanningView.alpha = 1
-        }
-    }
-
-    private func hideScanningOverlay() {
-        UIView.animate(withDuration: animationDuration) {
-            self.surfaceScanningView.alpha = 0
-        }
-    }
+    private func hideInstruction() { instructionLabel.fadeOut() }
 
     private func showCombatHUD() {
-        UIView.animate(withDuration: 0.4) {
-            self.combatHUD.alpha = 1
-        }
+        UIView.animate(withDuration: 0.5) { self.combatHUD.alpha = 1 }
         combatHUD.updateBossHP(fraction: 1.0, animated: false)
         combatHUD.updatePlayerHP(current: viewModel.playerState.maxHP,
                                  max: viewModel.playerState.maxHP)
@@ -212,9 +183,7 @@ final class ARViewController: UIViewController {
     }
 
     private func hideCombatHUD() {
-        UIView.animate(withDuration: 0.4) {
-            self.combatHUD.alpha = 0
-        }
+        UIView.animate(withDuration: 0.5) { self.combatHUD.alpha = 0 }
     }
 }
 
@@ -222,18 +191,17 @@ final class ARViewController: UIViewController {
 
 extension ARViewController: ARExperienceViewModelDelegate {
 
-    func viewModel(_ viewModel: ARExperienceViewModel,
-                   didTransitionTo state: ARExperienceState) {
+    func viewModel(_ vm: ARExperienceViewModel, didTransitionTo state: ARExperienceState) {
         if state.showsScanningOverlay {
-            showScanningOverlay()
+            UIView.animate(withDuration: animationDuration) { self.surfaceScanningView.alpha = 1 }
         } else if state == .awaitingGrassTap {
-            hideScanningOverlay()
+            UIView.animate(withDuration: animationDuration) { self.surfaceScanningView.alpha = 0 }
             lockPlaneDetection()
         }
 
         if let text = state.instructionText {
             showInstruction(text)
-        } else if !state.showsScanningOverlay {
+        } else {
             hideInstruction()
         }
 
@@ -242,10 +210,16 @@ extension ARViewController: ARExperienceViewModelDelegate {
         }
 
         switch state {
+        case .bossSpawning:
+            hideInstruction()
+        case .combatActive:
+            attachWeaponIfNeeded()
         case .playerDefeated:
             combatHUD.showRetryPrompt()
+            viewModel.sceneDirector.removeWeapon()
+            weaponAttached = false
         case .victory:
-            schedule(after: 3.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.hideCombatHUD()
             }
         default:
@@ -253,7 +227,7 @@ extension ARViewController: ARExperienceViewModelDelegate {
         }
     }
 
-    func viewModelDidUpdateCombat(_ viewModel: ARExperienceViewModel,
+    func viewModelDidUpdateCombat(_ vm: ARExperienceViewModel,
                                   playerHP: PlayerCombatState,
                                   bossHPFraction: Float,
                                   playerDistance: Float) {
@@ -262,16 +236,31 @@ extension ARViewController: ARExperienceViewModelDelegate {
         combatHUD.updateRangeIndicator(inRange: playerDistance <= playerHP.attackRange)
     }
 
-    func viewModelPlayerDidTakeDamage(_ viewModel: ARExperienceViewModel) {
+    func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
         combatHUD.flashDamage()
+        combatHUD.triggerScreenShake()
     }
 
-    func viewModelBossDidEnterPhase(_ viewModel: ARExperienceViewModel, phase: BossPhase) {
+    func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
+        combatHUD.triggerScreenShake()
+    }
+
+    func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
         combatHUD.showPhaseTransition(phase)
     }
 
-    private func schedule(after delay: TimeInterval, block: @escaping () -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: block)
+    func viewModelPlayerDidHitBoss(_ vm: ARExperienceViewModel) {
+        let flash = UIView(frame: view.bounds)
+        flash.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+        flash.isUserInteractionEnabled = false
+        view.addSubview(flash)
+        UIView.animate(withDuration: 0.15, animations: { flash.alpha = 0 }) { _ in
+            flash.removeFromSuperview()
+        }
+    }
+
+    func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool) {
+        // Reserved for future swing feedback (camera nudge, etc.)
     }
 }
 
@@ -280,18 +269,13 @@ extension ARViewController: ARExperienceViewModelDelegate {
 extension ARViewController: ARSCNViewDelegate {
 
     func renderer(_ renderer: SCNSceneRenderer,
-                  didAdd node: SCNNode,
-                  for anchor: ARAnchor) {
+                  didAdd node: SCNNode, for anchor: ARAnchor) {
         guard anchor is ARPlaneAnchor else { return }
         DispatchQueue.main.async { [weak self] in
             self?.viewModel.surfaceDetected(trackerNode: node)
         }
     }
 
-    /// Called on SceneKit's renderer thread every frame (~60 Hz).
-    /// We capture the camera transform here and dispatch all logic to main.
-    /// The state check is inside the `main.async` block so we never read
-    /// ViewModel properties from the renderer thread (avoids data races).
     func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         guard let frame = sceneView.session.currentFrame else { return }
         let transform = frame.camera.transform

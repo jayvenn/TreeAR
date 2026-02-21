@@ -11,83 +11,42 @@ import ARKit
 /// Owns and orchestrates every SceneKit node for the AR experience.
 ///
 /// **Threading contract:** All public methods must be called from the **main thread**.
-/// Completion handlers are **always** delivered on the main thread — guaranteed by
-/// `mainThreadCompletion(_:)` which wraps every `SCNAction` callback.
-///
-/// **Why this matters:** `SCNAction.runAction(_:completionHandler:)` fires its closure
-/// on SceneKit's internal renderer thread, not the main thread. Every public method
-/// that accepts a completion block must wrap it before passing it to `SCNAction`.
-///
-/// **Ownership model:** Nodes are created once via lazy properties.
-/// Once added to the scene graph they are retained by SceneKit; this class
-/// keeps a weak reference to the tracker node to avoid retain cycles with ARKit.
+/// Completion handlers are **always** delivered on the main thread.
 final class ARSceneDirector {
 
-    // MARK: - Private constants
+    // MARK: - Pre-loaded nodes
 
-    private enum Constant {
-        static let coverY: Float        = 0.1
-        static let presentationY: Float = 0.5
-        static let boxRevealDelay: TimeInterval = 2.0
-        static let boxTapHintDelay: TimeInterval = 10.0
-        static let guardianHideDuration: TimeInterval = 16.0
-    }
-
-    private enum NodeName {
-        static let main      = "main"
-        static let cover     = "cover"
-        static let spinner   = "spinner"
-        static let sideStars = "side_stars"
-        static let mainStars = "main_stars"
-        static let guardian  = "guardian"
-    }
-
-    // MARK: - Pre-loaded nodes (lazy — loaded once, warm on first access)
-
-    private lazy var grassNode:    SCNNode = .grass
-    private lazy var magicBoxNode: SCNNode = .magicBox
-    private lazy var lightsNode:   SCNNode = .lights
+    private lazy var grassNode: SCNNode = .grass
+    private lazy var lightsNode: SCNNode = .lights
 
     // MARK: - Runtime state
 
     private weak var trackerNode: SCNNode?
-    private var guardianOriginalPosition: SCNVector3?
-    private weak var activeGuardian: SCNNode?
-
-    // MARK: - Boss state
-
     private(set) var bossNode: SCNNode?
     let telegraphRenderer = BossTelegraphRenderer()
 
-    private let yBillboardConstraint: SCNBillboardConstraint = {
-        let c = SCNBillboardConstraint()
-        c.freeAxes = .Y
-        return c
-    }()
+    // MARK: - Weapon
+
+    private(set) var weaponNode: SCNNode?
+    private var isSwinging = false
 
     // MARK: - Setup
 
-    /// Pre-warm lazy node loading on a background thread to prevent frame hitches
-    /// when the experience begins. Safe to call from any thread.
     func preloadAssets() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             _ = self.grassNode
-            _ = self.magicBoxNode
             _ = self.lightsNode
         }
     }
 
-    /// Must be called once a surface is found, before any other scene methods.
     func configure(trackerNode: SCNNode) {
         assertMainThread()
         self.trackerNode = trackerNode
     }
 
-    // MARK: - Phase 1: Grass
+    // MARK: - Grass
 
-    /// Adds grass to the scene and runs the grow animation.
-    /// `completion` is called on the main thread when the animation finishes.
     func growGrass(completion: @escaping () -> Void) {
         assertMainThread()
         guard let tracker = trackerNode else { return }
@@ -102,116 +61,83 @@ final class ARSceneDirector {
                             completionHandler: mainThreadCompletion(completion))
     }
 
-    // MARK: - Phase 2: Dismiss grass & reveal box
-
-    /// Shrinks grass then calls `completion` once it's safe to add the magic box.
     func dismissGrass(completion: @escaping () -> Void) {
         assertMainThread()
         grassNode.runAction(.grassShrinkSequenceAction(grassNode))
         grassNode.runAction(.grassShrinkFadeOutSequenceAction())
         for child in grassNode.childNodes { child.runAction(.grassReversedRotation) }
+        lightsNode.runAction(.sequence([.fadeOut(duration: 1.0), .removeFromParentNode()]))
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4, execute: completion)
     }
 
-    /// Adds the magic box with a billboard constraint, waits for it to settle,
-    /// then fades it in and calls `onReady`.
-    func presentMagicBox(onReady: @escaping () -> Void) {
+    // MARK: - Weapon Management
+
+    /// Builds and attaches the weapon to the camera (pointOfView) node.
+    func attachWeapon(to cameraNode: SCNNode) {
         assertMainThread()
-        guard let tracker = trackerNode else { return }
+        guard weaponNode == nil else { return }
 
-        magicBoxNode.constraints = [yBillboardConstraint]
-        tracker.addChildNode(magicBoxNode)
+        let weapon = PlayerWeapon.buildModel()
+        weapon.position = PlayerWeapon.restPosition
+        weapon.eulerAngles = PlayerWeapon.restEuler
+        cameraNode.addChildNode(weapon)
+        self.weaponNode = weapon
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + Constant.boxRevealDelay) { [weak self] in
+        weapon.runAction(PlayerWeapon.idleSwayAnimation(), forKey: PlayerWeapon.idleSwayKey)
+    }
+
+    func removeWeapon() {
+        weaponNode?.removeAllActions()
+        weaponNode?.removeFromParentNode()
+        weaponNode = nil
+        isSwinging = false
+    }
+
+    /// Triggers a weapon swing. Returns `false` if already mid-swing.
+    /// `onApex` fires at the moment the blade reaches max extension (hit-check time).
+    /// `onComplete` fires when the swing fully returns to rest.
+    func swingWeapon(onApex: @escaping () -> Void, onComplete: @escaping () -> Void) -> Bool {
+        assertMainThread()
+        guard let weapon = weaponNode, !isSwinging else { return false }
+        isSwinging = true
+
+        weapon.removeAction(forKey: PlayerWeapon.idleSwayKey)
+        PlayerWeapon.spawnSlashTrail(on: weapon)
+
+        let swing = PlayerWeapon.swingAnimation(onApex: { [weak self] in
+            DispatchQueue.main.async {
+                onApex()
+            }
+        })
+
+        weapon.runAction(swing, completionHandler: mainThreadCompletion { [weak self] in
             guard let self else { return }
-            self.magicBoxNode.constraints = []
-            self.magicBoxNode.runAction(.fadeInSequenceAction)
-            onReady()
+            self.isSwinging = false
+            weapon.runAction(PlayerWeapon.idleSwayAnimation(), forKey: PlayerWeapon.idleSwayKey)
+            onComplete()
+        })
+
+        return true
+    }
+
+    /// Flares weapon runes on a successful hit.
+    func playWeaponHitFlare() {
+        guard let weapon = weaponNode else { return }
+        for child in weapon.childNodes {
+            child.runAction(.sequence([
+                PlayerWeapon.hitFlareAnimation(),
+                PlayerWeapon.hitFlareResetAnimation()
+            ]))
         }
     }
 
-    // MARK: - Phase 3: Open box
+    // MARK: - Boss Spawn
 
-    /// Animates the box opening sequence.
-    /// `completion` receives the `mainNode` sub-tree that contains the guardian.
-    func openMagicBox(completion: @escaping (SCNNode) -> Void) {
-        assertMainThread()
-
-        guard
-            let mainNode    = magicBoxNode.childNode(withName: NodeName.main,      recursively: true),
-            let coverNode   = mainNode.childNode(withName: NodeName.cover,         recursively: true),
-            let spinnerNode = mainNode.childNode(withName: NodeName.spinner,       recursively: true),
-            let sideStars   = mainNode.childNode(withName: NodeName.sideStars,     recursively: true),
-            let mainStars   = mainNode.childNode(withName: NodeName.mainStars,     recursively: true)
-        else { return }
-
-        let d: TimeInterval = 0.3
-        let coverSeq = SCNAction.sequence([
-            .move(to: SCNVector3(0, Constant.coverY,  0),    duration: d),
-            .move(to: SCNVector3(0, Constant.coverY, -0.22), duration: d),
-            .move(to: SCNVector3(0, -0.1,            -0.25), duration: d)
-        ])
-        let spinForever = SCNAction.repeatForever(
-            .rotateBy(x: 0, y: -CGFloat.pi * 2, z: 0, duration: 1)
-        )
-
-        mainStars.runAction(.fadeIn(duration: 1))
-        sideStars.runAction(.fadeOutSequenceAction)
-        spinnerNode.runAction(spinForever)
-        let wrappedCompletion = mainThreadCompletion { completion(mainNode) }
-        coverNode.runAction(coverSeq, completionHandler: wrappedCompletion)
-    }
-
-    // MARK: - Phase 4: Guardian
-
-    /// Raises the guardian to presentation height.
-    /// `completion` fires when the rise animation completes (speech starts here).
-    func raiseGuardian(from mainNode: SCNNode, completion: @escaping () -> Void) {
-        assertMainThread()
-
-        guard let guardian = mainNode.childNode(withName: NodeName.guardian,
-                                                recursively: true) else { return }
-        activeGuardian = guardian
-        guardianOriginalPosition = guardian.position
-
-        var raised = guardian.position
-        raised.y = Constant.presentationY
-
-        let moveUp = SCNAction.move(to: raised, duration: 4)
-        moveUp.timingMode = .easeIn
-
-        guardian.runAction(.fadeIn(duration: 1))
-        guardian.runAction(moveUp, completionHandler: mainThreadCompletion(completion))
-    }
-
-    /// Lowers the guardian back to its resting position.
-    /// `completion` fires once the guardian is fully hidden.
-    func lowerGuardian(completion: @escaping () -> Void) {
-        assertMainThread()
-
-        guard let guardian = activeGuardian,
-              let original = guardianOriginalPosition else {
-            completion()
-            return
-        }
-
-        let seq = SCNAction.sequence([
-            .move(to: original, duration: 4),
-            .fadeOut(duration: 0.5)
-        ])
-        seq.timingMode = .easeOut
-        guardian.runAction(seq, completionHandler: mainThreadCompletion(completion))
-    }
-
-    // MARK: - Phase 5: Boss
-
-    /// Builds and spawns the boss at the tracker anchor.
-    /// The boss starts below the ground plane and rises dramatically.
     func spawnBoss(completion: @escaping () -> Void) {
         assertMainThread()
         guard let tracker = trackerNode else { return }
 
-        dismissPreCombatNodes()
+        addAtmosphericLighting(on: tracker)
 
         let boss = HollowBoss.buildModel()
         boss.position = SCNVector3(0, -HollowBoss.height, 0)
@@ -221,41 +147,38 @@ final class ARSceneDirector {
 
         telegraphRenderer.configure(parentNode: boss)
 
+        addSpawnGroundEffect(on: tracker)
+
         boss.runAction(HollowBoss.spawnAnimation(),
                        completionHandler: mainThreadCompletion(completion))
     }
 
-    /// Rotates the boss to face the camera each frame.
+    // MARK: - Per-Frame
+
     func updateBossFacing(cameraTransform: simd_float4x4) {
         guard let boss = bossNode else { return }
         let camX = cameraTransform.columns.3.x
         let camZ = cameraTransform.columns.3.z
-        let bossWorldPos = boss.worldPosition
-        let angle = atan2(camX - bossWorldPos.x, camZ - bossWorldPos.z)
+        let bossPos = boss.worldPosition
+        let angle = atan2(camX - bossPos.x, camZ - bossPos.z)
         boss.eulerAngles.y = angle
     }
 
-    /// Returns horizontal distance from camera to boss center.
     func distanceToBoss(cameraTransform: simd_float4x4) -> Float {
         guard let boss = bossNode else { return .greatestFiniteMagnitude }
-        let camX = cameraTransform.columns.3.x
-        let camZ = cameraTransform.columns.3.z
-        let bossPos = boss.worldPosition
-        let dx = camX - bossPos.x
-        let dz = camZ - bossPos.z
+        let dx = cameraTransform.columns.3.x - boss.worldPosition.x
+        let dz = cameraTransform.columns.3.z - boss.worldPosition.z
         return sqrt(dx * dx + dz * dz)
     }
 
-    /// Whether the camera is behind the boss (for sweep dodge detection).
     func isCameraBehindBoss(cameraTransform: simd_float4x4) -> Bool {
         guard let boss = bossNode else { return false }
         let camX = cameraTransform.columns.3.x
         let camZ = cameraTransform.columns.3.z
         let bossPos = boss.worldPosition
-        let bossForward = SCNVector3(-sin(boss.eulerAngles.y), 0, -cos(boss.eulerAngles.y))
-        let toCamera = SCNVector3(camX - bossPos.x, 0, camZ - bossPos.z)
-        let dot = bossForward.x * toCamera.x + bossForward.z * toCamera.z
-        return dot < 0
+        let fwd = SCNVector3(-sin(boss.eulerAngles.y), 0, -cos(boss.eulerAngles.y))
+        let toCam = SCNVector3(camX - bossPos.x, 0, camZ - bossPos.z)
+        return fwd.x * toCam.x + fwd.z * toCam.z < 0
     }
 
     // MARK: - Boss Attack Animations
@@ -266,22 +189,19 @@ final class ARSceneDirector {
 
         switch attack {
         case .groundSlam:
-            let anims = HollowBoss.groundSlamTelegraphAnimation(duration: attack.telegraphDuration)
-            boss.childNode(withName: "arm_left", recursively: true)?.runAction(anims.left)
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(anims.right)
-
+            let a = HollowBoss.groundSlamTelegraphAnimation(duration: attack.telegraphDuration)
+            boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
+            boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         case .sweep:
-            let anim = HollowBoss.sweepTelegraphAnimation(duration: attack.telegraphDuration)
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(anim)
-
+            boss.childNode(withName: "arm_right", recursively: true)?
+                .runAction(HollowBoss.sweepTelegraphAnimation(duration: attack.telegraphDuration))
         case .stompWave:
-            let anim = HollowBoss.stompTelegraphAnimation(duration: attack.telegraphDuration)
-            boss.childNode(withName: "leg_left", recursively: true)?.runAction(anim)
-
+            boss.childNode(withName: "leg_left", recursively: true)?
+                .runAction(HollowBoss.stompTelegraphAnimation(duration: attack.telegraphDuration))
         case .enragedCombo:
-            let anims = HollowBoss.groundSlamTelegraphAnimation(duration: attack.telegraphDuration * 0.7)
-            boss.childNode(withName: "arm_left", recursively: true)?.runAction(anims.left)
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(anims.right)
+            let a = HollowBoss.groundSlamTelegraphAnimation(duration: attack.telegraphDuration * 0.7)
+            boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
+            boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         }
     }
 
@@ -291,23 +211,22 @@ final class ARSceneDirector {
 
         switch attack {
         case .groundSlam:
-            let anims = HollowBoss.groundSlamExecuteAnimation()
-            boss.childNode(withName: "arm_left", recursively: true)?.runAction(anims.left)
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(anims.right)
-
+            let a = HollowBoss.groundSlamExecuteAnimation()
+            boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
+            boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         case .sweep:
-            let anim = HollowBoss.sweepExecuteAnimation()
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(anim)
-
+            boss.childNode(withName: "arm_right", recursively: true)?
+                .runAction(HollowBoss.sweepExecuteAnimation())
         case .stompWave:
-            let anim = HollowBoss.stompExecuteAnimation()
-            boss.childNode(withName: "leg_left", recursively: true)?.runAction(anim)
-
+            boss.childNode(withName: "leg_left", recursively: true)?
+                .runAction(HollowBoss.stompExecuteAnimation())
         case .enragedCombo:
-            let slamAnims = HollowBoss.groundSlamExecuteAnimation()
-            boss.childNode(withName: "arm_left", recursively: true)?.runAction(slamAnims.left)
-            boss.childNode(withName: "arm_right", recursively: true)?.runAction(slamAnims.right)
+            let a = HollowBoss.groundSlamExecuteAnimation()
+            boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
+            boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         }
+
+        spawnImpactParticles()
     }
 
     func playRecoveryAnimation(for attack: BossAttack) {
@@ -325,11 +244,15 @@ final class ARSceneDirector {
         }
     }
 
-    func playBossHitFlash() {
+    // MARK: - Hit Feedback
+
+    func playBossHitEffect() {
         guard let boss = bossNode else { return }
-        for child in boss.childNodes where child.name != "eye" {
+        for child in boss.childNodes where child.name != "eye" && child.name != "ambient_particles" {
             child.runAction(HollowBoss.hitFlashAnimation())
         }
+        boss.runAction(HollowBoss.hitStaggerAnimation())
+        spawnHitSparks()
     }
 
     func playEnrageEffect(phase: BossPhase) {
@@ -339,14 +262,14 @@ final class ARSceneDirector {
         }
 
         if phase == .phase3 {
-            let redLight = SCNLight()
-            redLight.type = .omni
-            redLight.color = UIColor.systemRed
-            redLight.intensity = 500
-            let lightNode = SCNNode()
-            lightNode.light = redLight
-            lightNode.position = SCNVector3(0, 1.5, 0)
-            boss.addChildNode(lightNode)
+            let light = SCNLight()
+            light.type = .omni
+            light.color = UIColor(red: 1, green: 0.15, blue: 0, alpha: 1)
+            light.intensity = 600
+            let n = SCNNode()
+            n.light = light
+            n.position = SCNVector3(0, 1.5, 0)
+            boss.addChildNode(n)
         }
     }
 
@@ -356,6 +279,7 @@ final class ARSceneDirector {
             return
         }
         telegraphRenderer.removeAllTelegraphs()
+        spawnDeathExplosion()
         boss.runAction(HollowBoss.deathAnimation(),
                        completionHandler: mainThreadCompletion(completion))
     }
@@ -365,20 +289,130 @@ final class ARSceneDirector {
         bossNode = nil
     }
 
-    // MARK: - Hit testing
+    // MARK: - Hit Testing
 
-    /// Returns the name of the first node hit at `location` in `sceneView`, or `nil`.
     func hitNodeName(at location: CGPoint, in sceneView: ARSCNView) -> String? {
         sceneView.hitTest(location).first?.node.name
     }
 
-    // MARK: - Private helpers
+    // MARK: - Private — Particles & Effects
 
-    /// Wraps a completion closure to guarantee it executes on the main thread.
-    ///
-    /// `SCNAction.runAction(_:completionHandler:)` fires its closure on SceneKit's
-    /// internal renderer thread. This wrapper ensures every public completion we
-    /// hand back to callers honours our documented main-thread contract.
+    private func spawnHitSparks() {
+        guard let boss = bossNode else { return }
+        let sparkNode = SCNNode()
+        sparkNode.position = SCNVector3(0, 1.2, 0.3)
+
+        let sparks = SCNParticleSystem()
+        sparks.birthRate = 80
+        sparks.particleLifeSpan = 0.3
+        sparks.particleSize = 0.015
+        sparks.particleColor = UIColor(red: 1, green: 0.6, blue: 0.2, alpha: 1)
+        sparks.emitterShape = SCNSphere(radius: 0.1)
+        sparks.particleVelocity = 1.5
+        sparks.spreadingAngle = 120
+        sparks.blendMode = .additive
+        sparks.isLightingEnabled = false
+        sparks.loops = false
+        sparks.emissionDuration = 0.08
+
+        sparkNode.addParticleSystem(sparks)
+        boss.addChildNode(sparkNode)
+        sparkNode.runAction(.sequence([.wait(duration: 0.5), .removeFromParentNode()]))
+    }
+
+    private func spawnImpactParticles() {
+        guard let boss = bossNode else { return }
+        let node = SCNNode()
+        node.position = SCNVector3(0, 0.02, 0)
+
+        let dust = SCNParticleSystem()
+        dust.birthRate = 40
+        dust.particleLifeSpan = 0.8
+        dust.particleSize = 0.06
+        dust.particleSizeVariation = 0.04
+        dust.particleColor = UIColor(white: 0.5, alpha: 0.4)
+        dust.emitterShape = SCNCylinder(radius: 1.5, height: 0.01)
+        dust.particleVelocity = 0.8
+        dust.spreadingAngle = 90
+        dust.blendMode = .alpha
+        dust.isLightingEnabled = false
+        dust.loops = false
+        dust.emissionDuration = 0.15
+
+        node.addParticleSystem(dust)
+        boss.addChildNode(node)
+        node.runAction(.sequence([.wait(duration: 1.5), .removeFromParentNode()]))
+    }
+
+    private func spawnDeathExplosion() {
+        guard let boss = bossNode else { return }
+        let node = SCNNode()
+        node.position = SCNVector3(0, 1.1, 0)
+
+        let explosion = SCNParticleSystem()
+        explosion.birthRate = 200
+        explosion.particleLifeSpan = 1.5
+        explosion.particleLifeSpanVariation = 0.5
+        explosion.particleSize = 0.04
+        explosion.particleSizeVariation = 0.03
+        explosion.particleColor = UIColor(red: 1, green: 0.3, blue: 0.05, alpha: 1)
+        explosion.particleColorVariation = SCNVector4(0.1, 0.2, 0, 0.3)
+        explosion.emitterShape = SCNSphere(radius: 0.5)
+        explosion.particleVelocity = 2.0
+        explosion.particleVelocityVariation = 1.0
+        explosion.spreadingAngle = 180
+        explosion.blendMode = .additive
+        explosion.isLightingEnabled = false
+        explosion.loops = false
+        explosion.emissionDuration = 0.4
+
+        node.addParticleSystem(explosion)
+        boss.addChildNode(node)
+    }
+
+    private func addSpawnGroundEffect(on tracker: SCNNode) {
+        let node = SCNNode()
+        node.position = SCNVector3(0, 0.01, 0)
+
+        let crack = SCNParticleSystem()
+        crack.birthRate = 30
+        crack.particleLifeSpan = 2.5
+        crack.particleSize = 0.03
+        crack.particleColor = UIColor(red: 1, green: 0.25, blue: 0.05, alpha: 0.8)
+        crack.emitterShape = SCNCylinder(radius: 0.8, height: 0.01)
+        crack.particleVelocity = 0.3
+        crack.spreadingAngle = 30
+        crack.blendMode = .additive
+        crack.isLightingEnabled = false
+        crack.loops = false
+        crack.emissionDuration = 3.0
+
+        node.addParticleSystem(crack)
+        tracker.addChildNode(node)
+        node.runAction(.sequence([.wait(duration: 5), .removeFromParentNode()]))
+    }
+
+    private func addAtmosphericLighting(on tracker: SCNNode) {
+        let ambientNode = SCNNode()
+        let ambient = SCNLight()
+        ambient.type = .omni
+        ambient.color = UIColor(red: 1, green: 0.15, blue: 0, alpha: 1)
+        ambient.intensity = 150
+        ambient.attenuationStartDistance = 0
+        ambient.attenuationEndDistance = 4.0
+        ambientNode.light = ambient
+        ambientNode.position = SCNVector3(0, 0.5, 0)
+        tracker.addChildNode(ambientNode)
+
+        let fadeUp = SCNAction.customAction(duration: 3.0) { node, elapsed in
+            let t = elapsed / 3.0
+            node.light?.intensity = CGFloat(t) * 150
+        }
+        ambientNode.runAction(fadeUp)
+    }
+
+    // MARK: - Private — Threading
+
     private func mainThreadCompletion(_ block: @escaping () -> Void) -> () -> Void {
         return {
             if Thread.isMainThread {
@@ -387,11 +421,6 @@ final class ARSceneDirector {
                 DispatchQueue.main.async(execute: block)
             }
         }
-    }
-
-    private func dismissPreCombatNodes() {
-        magicBoxNode.runAction(.sequence([.fadeOut(duration: 0.8), .removeFromParentNode()]))
-        lightsNode.runAction(.sequence([.fadeOut(duration: 0.8), .removeFromParentNode()]))
     }
 
     private func assertMainThread(function: StaticString = #function) {

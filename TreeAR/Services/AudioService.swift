@@ -37,7 +37,7 @@ final class AudioService {
             case .moveAround:      return "Move around"
             case .somethingMoving: return "Something is moving"
             case .whoa:            return "Whoa"
-            case .background:      return "SunnyWeather"
+            case .background:      return "Echoes of the Emerald"
             case .hit:             return "combat_hit"
             case .whiff:           return "combat_whiff"
             case .telegraph:       return "combat_telegraph"
@@ -49,12 +49,7 @@ final class AudioService {
             }
         }
 
-        fileprivate var fileExtension: String {
-            switch self {
-            case .background: return "m4a"
-            default:          return "mp3"
-            }
-        }
+        fileprivate var fileExtension: String { "mp3" }
 
         fileprivate var loops: Bool {
             self == .background || self == .combatLoop
