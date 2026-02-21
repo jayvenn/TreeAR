@@ -11,38 +11,27 @@ import AVFoundation
 
 final class ARViewController: UIViewController {
 
-    // MARK: - Scene view
-    let sceneView = ARSCNView(frame: CGRect(x: 0, y: 0, width: 500, height: 600))
+    // MARK: - Scene nodes
+    let sceneView    = ARSCNView(frame: CGRect(x: 0, y: 0, width: 500, height: 600))
     let grassNode    = SCNNode.grass
     let magicBoxNode = SCNNode.magicBox
-
-    var trackerNode          = SCNNode()
-    lazy var sceneViewRootNode = sceneView.scene.rootNode
+    var trackerNode  = SCNNode()
 
     // MARK: - State
-    var foundSurface          = false
-    var gameStarted           = false
-    var grassTapped           = false
-    var magicBoxOpened        = false
-    var firstEnding           = false
-    var dataStructureIsPlaying = false
-    var gamePosition          = SCNVector3(0, 0, 0)
-
-    lazy var instructionLabelHeightConstraint: NSLayoutConstraint =
-        instructionLabel.heightAnchor.constraint(equalToConstant: 52)
-
-    // MARK: - Data structure visualization
-    private let numberOfCubes: CGFloat = 3
-    var containerBoxNode: ContainerBoxNode!
-    var cubeNodes = [CubeNode]()
+    var foundSurface   = false
+    var gameStarted    = false
+    var grassTapped    = false
+    var magicBoxOpened = false
 
     private let coverYPosition:        Float = 0.1
     private let presentationYPosition: Float = 0.5
 
+    lazy var instructionLabelHeightConstraint: NSLayoutConstraint =
+        instructionLabel.heightAnchor.constraint(equalToConstant: 52)
+
     // MARK: - Speech
     enum SpeechString: String {
-        case coding = "Coding is a superpower. Coding empowers people to do incredible things. I have prepared a computer science stack data structure lesson for you. Hope you like it."
-        case dataStructure = "A stack data structure uses the last in first out ordering. Here's a 3D visualization of a stack data structure. If the cube that moves into the container first wants to move out of the container, it will have to wait until every other cube has moved out of the container before it can do the same. Conversely, the cube that moves into the container last can move out of the container first. Go in first, get out last. Go in last, get out first. That is the ordering of a stack data structure..."
+        case coding = "Coding is a superpower. Coding empowers people to do incredible things. Hope you like it."
     }
 
     private let speechSynthesizer = AVSpeechSynthesizer()
@@ -85,7 +74,7 @@ final class ARViewController: UIViewController {
         return view
     }()
 
-    // MARK: - Audio (all optional – gracefully silent if file is missing)
+    // MARK: - Audio (all optional – gracefully silent if a file is missing)
     private let audioExt = "m4a"
 
     private func makePlayer(resource: String) -> AVAudioPlayer? {
@@ -95,10 +84,9 @@ final class ARViewController: UIViewController {
         return player
     }
 
-    private lazy var scene1AudioPlayer       = makePlayer(resource: "Move around")
-    private lazy var scene2AudioPlayer       = makePlayer(resource: "Something is moving")
-    private lazy var scene3AudioPlayer       = makePlayer(resource: "Whoa")
-    private lazy var congratulationsPlayer   = makePlayer(resource: "Congratulations")
+    private lazy var scene1AudioPlayer = makePlayer(resource: "Move around")
+    private lazy var scene2AudioPlayer = makePlayer(resource: "Something is moving")
+    private lazy var scene3AudioPlayer = makePlayer(resource: "Whoa")
     private lazy var backgroundAudioPlayer: AVAudioPlayer? = {
         guard let p = makePlayer(resource: "SunnyWeather") else { return nil }
         p.numberOfLoops = -1
@@ -112,7 +100,6 @@ final class ARViewController: UIViewController {
         setUpSceneView()
         setUpIntroductionLayout()
         animateIntroductionScene()
-        speechSynthesizer.delegate = self
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -148,7 +135,6 @@ final class ARViewController: UIViewController {
             surfaceScanningView.topAnchor.constraint(equalTo: view.topAnchor),
             surfaceScanningView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-
         view.addSubview(instructionLabel)
         let safe = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
@@ -185,10 +171,10 @@ final class ARViewController: UIViewController {
         })
     }
 
-    // MARK: - Scene 3: grass
+    // MARK: - Scene 3: grass grows
     private func addGrassToScene() {
-        let lightsNode = SCNNode.lights
-        let growAction = SCNAction.grassGrowSequenceAction(grassNode)
+        let lightsNode   = SCNNode.lights
+        let growAction   = SCNAction.grassGrowSequenceAction(grassNode)
         let rotateAction = SCNAction.grassesRotation
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = []
@@ -203,9 +189,7 @@ final class ARViewController: UIViewController {
             self.grassNode.runAction(growAction) { [weak self] in
                 self?.addTapGestureToSceneView()
             }
-            for child in self.grassNode.childNodes {
-                child.runAction(rotateAction)
-            }
+            for child in self.grassNode.childNodes { child.runAction(rotateAction) }
             self.trackerNode.addChildNode(lightsNode)
         }
     }
@@ -224,7 +208,7 @@ final class ARViewController: UIViewController {
     @objc func didTapSceneView(withGestureRecognizer recognizer: UITapGestureRecognizer) {
         let tapLocation = recognizer.location(in: sceneView)
         let hits = sceneView.hitTest(tapLocation)
-        guard (instructionLabel.alpha == 1 || firstEnding),
+        guard instructionLabel.alpha == 1,
               let node = hits.first?.node,
               let nodeName = node.name else { return }
 
@@ -235,12 +219,6 @@ final class ARViewController: UIViewController {
         case "base", "cover":
             instructionLabel.fadeOut()
             openMagicBox()
-        case "box0", "box1", "box2",
-             "leftSquare", "rightSquare",
-             "bottomRectangle", "leftRectangle", "topRectangle", "rightRectangle":
-            guard !(congratulationsPlayer?.isPlaying ?? false),
-                  firstEnding, !dataStructureIsPlaying else { return }
-            dataStructureOperationAnimation()
         default:
             return
         }
@@ -254,9 +232,7 @@ final class ARViewController: UIViewController {
             guard let self else { return }
             self.grassNode.runAction(.grassShrinkSequenceAction(self.grassNode))
             self.grassNode.runAction(.grassShrinkFadeOutSequenceAction())
-            for child in self.grassNode.childNodes {
-                child.runAction(.grassReversedRotation)
-            }
+            for child in self.grassNode.childNodes { child.runAction(.grassReversedRotation) }
             self.showMagicBox()
         }
     }
@@ -291,11 +267,10 @@ final class ARViewController: UIViewController {
 
         let dur: TimeInterval = 0.3
         let coverSeq = SCNAction.sequence([
-            SCNAction.move(to: SCNVector3(0, coverYPosition, 0),    duration: dur),
+            SCNAction.move(to: SCNVector3(0, coverYPosition, 0),     duration: dur),
             SCNAction.move(to: SCNVector3(0, coverYPosition, -0.22), duration: dur),
             SCNAction.move(to: SCNVector3(0, -0.1,           -0.25), duration: dur)
         ])
-
         let spinForever = SCNAction.repeatForever(
             SCNAction.rotateBy(x: 0, y: -CGFloat.pi * 2, z: 0, duration: 1)
         )
@@ -310,7 +285,7 @@ final class ARViewController: UIViewController {
         }
     }
 
-    // MARK: - Scene 6: guardian
+    // MARK: - Scene 6: guardian rises, speaks, returns
     private func showGuardian(mainNode: SCNNode) {
         guard let guardian = mainNode.childNode(withName: "guardian", recursively: true) else { return }
         let original = guardian.position
@@ -333,78 +308,17 @@ final class ARViewController: UIViewController {
         ])
         hideSeq.timingMode = .easeOut
         DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
-            guardian.runAction(hideSeq) { self.beginDataStructureLesson() }
-        }
-    }
-
-    // MARK: - Scene 7: data structure lesson
-    private func beginDataStructureLesson() {
-        generateCubeNodes { planeNode in
-            let moveUp = SCNAction.move(to: SCNVector3(0, self.presentationYPosition, 0), duration: 4)
-            moveUp.timingMode = .easeIn
-            for cube in self.cubeNodes {
-                cube.runAction(.fadeOpacity(to: 1, duration: 0.25))
-            }
-            planeNode.runAction(.fadeIn(duration: 1))
-            planeNode.runAction(moveUp) { self.runStackLesson(onNode: planeNode) }
-        }
-    }
-
-    private func generateCubeNodes(completion: @escaping (SCNNode) -> Void) {
-        guard let mainNode  = magicBoxNode.childNode(withName: "main", recursively: true),
-              let planeNode = mainNode.childNode(withName: "data_structure_plane", recursively: true)
-        else { return }
-
-        let cubeScaleFactor: CGFloat = 2
-        let trackerLen  = CGFloat(40 * planeNode.scale.x) * cubeScaleFactor
-        let spacing:    CGFloat = 0.05 * cubeScaleFactor
-        let totalSpacing = (numberOfCubes - 1) * spacing
-        let cubeLen     = (trackerLen - totalSpacing) / numberOfCubes
-        let leadingX    = -(trackerLen / 2) + (cubeLen / 2)
-
-        containerBoxNode = ContainerBoxNode(cubeLength: cubeLen, cubeSpacing: spacing,
-                                             trackerNodeLength: trackerLen,
-                                             lesson: Lesson(lessonName: .stack))
-
-        for i in 0..<Int(numberOfCubes) {
-            let cube = CubeNode(length: cubeLen, index: i, leadingX: leadingX)
-            cube.eulerAngles.y = 0
-            cube.position.y += Float(cubeLen / 2)
-            planeNode.addChildNode(cube)
-            cubeNodes.append(cube)
-        }
-        completion(planeNode)
-    }
-
-    // MARK: - Scene 8: stack animation
-    func runStackLesson(onNode node: SCNNode) {
-        if let textNode = node.childNode(withName: "text node", recursively: true) {
-            textNode.runAction(.sequence([.fadeIn(duration: animationDuration)]))
-        }
-        containerBoxNode.cubeNodes = cubeNodes
-        containerBoxNode.runFadeInAction {
-            self.containerBoxNode.runAssembleSquareAction {
-                self.dataStructureOperationAnimation()
+            guardian.runAction(hideSeq) {
+                // Guardian has returned — ready for the next chapter.
             }
         }
-        node.addChildNode(containerBoxNode)
-    }
-
-    func dataStructureOperationAnimation() {
-        dataStructureIsPlaying = true
-        containerBoxNode.pushCubeNodes()
-        guard !(congratulationsPlayer?.isPlaying ?? false),
-              !speechSynthesizer.isSpeaking else { return }
-        speakWith(speechString: .dataStructure)
     }
 
     // MARK: - Helpers
     func cameraVectors() -> (direction: simd_float3, position: simd_float3)? {
         guard let frame = sceneView.session.currentFrame else { return nil }
         let t = frame.camera.transform
-        let direction = simd_make_float3(t[2]) * -5
-        let position  = simd_make_float3(t[3])
-        return (direction, position)
+        return (simd_make_float3(t[2]) * -5, simd_make_float3(t[3]))
     }
 }
 
@@ -423,10 +337,7 @@ extension ARViewController: ARSCNViewDelegate {
                 types: [.existingPlaneUsingExtent, .estimatedHorizontalPlane]
               ).first != nil
         else { return }
-
-        if !foundSurface {
-            foundSurface = true
-        }
+        foundSurface = true
     }
 
     func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
@@ -442,27 +353,3 @@ extension ARViewController: ARSCNViewDelegate {
 
 // MARK: - ARSessionDelegate
 extension ARViewController: ARSessionDelegate {}
-
-// MARK: - AVSpeechSynthesizerDelegate
-extension ARViewController: AVSpeechSynthesizerDelegate {
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
-                            didFinish utterance: AVSpeechUtterance) {
-        guard utterance.speechString == SpeechString.dataStructure.rawValue else { return }
-        dataStructureIsPlaying = false
-        guard !firstEnding else { return }
-        firstEnding = true
-        congratulationsPlayer?.play()
-        instructionLabel.text = "Congratulations!\nYou have completed today's adventure."
-        instructionLabel.fadeIn()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
-            self.instructionLabel.fadeOut()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                self.instructionLabel.text = "I hope you have enjoyed the experience!"
-                self.instructionLabel.fadeIn()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
-                    self.instructionLabel.fadeOut()
-                }
-            }
-        }
-    }
-}
