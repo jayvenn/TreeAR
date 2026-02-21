@@ -158,8 +158,10 @@ class IntroductionViewController: UIViewController {
             self.subTitleLabel.alpha = 1
         }
         
-        UIView.animate(withDuration: 1.2, delay: 3.8, options: .curveEaseOut) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.8) {
             self.sproutView.playAnimation()
+        }
+        UIView.animate(withDuration: 1.2, delay: 3.8, options: .curveEaseOut) {
             self.sproutContainerView.alpha = 1
         }
         
