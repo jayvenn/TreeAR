@@ -84,7 +84,7 @@ final class AnimatedSproutView: UIView {
         </html>
         """
         
-        webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
+        webView.loadHTMLString(html, baseURL: nil)
     }
 }
 

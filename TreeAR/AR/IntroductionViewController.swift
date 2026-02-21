@@ -76,7 +76,7 @@ class IntroductionViewController: UIViewController {
     var viewModel: IntroductionViewModel?
     
     private lazy var introductionPlayer: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "introduction", withExtension: "mp3"),
+        guard let url = Bundle.main.url(forResource: "Intro", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.prepareToPlay()

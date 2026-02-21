@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		B946AB062F4A4FFB00999D16 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B946AA7C2F4A4FFB00999D16 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B946AA832F4A4FFB00999D16;
+			remoteInfo = TreeAR;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		B946AA842F4A4FFB00999D16 /* TreeAR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TreeAR.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B946AB002F4A4FFB00999D16 /* TreeARTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TreeARTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,22 @@
 			path = TreeAR;
 			sourceTree = "<group>";
 		};
+		B946AB012F4A4FFB00999D16 /* TreeARTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TreeARTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		B946AA812F4A4FFB00999D16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B946AB032F4A4FFB00999D16 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				B946AA862F4A4FFB00999D16 /* TreeAR */,
+				B946AB012F4A4FFB00999D16 /* TreeARTests */,
 				B946AA852F4A4FFB00999D16 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				B946AA842F4A4FFB00999D16 /* TreeAR.app */,
+				B946AB002F4A4FFB00999D16 /* TreeARTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +95,29 @@
 			productReference = B946AA842F4A4FFB00999D16 /* TreeAR.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B946AB052F4A4FFB00999D16 /* TreeARTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B946AB0A2F4A4FFC00999D16 /* Build configuration list for PBXNativeTarget "TreeARTests" */;
+			buildPhases = (
+				B946AB022F4A4FFB00999D16 /* Sources */,
+				B946AB032F4A4FFB00999D16 /* Frameworks */,
+				B946AB042F4A4FFB00999D16 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B946AB072F4A4FFB00999D16 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B946AB012F4A4FFB00999D16 /* TreeARTests */,
+			);
+			name = TreeARTests;
+			packageProductDependencies = (
+			);
+			productName = TreeARTests;
+			productReference = B946AB002F4A4FFB00999D16 /* TreeARTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +130,10 @@
 				TargetAttributes = {
 					B946AA832F4A4FFB00999D16 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					B946AB052F4A4FFB00999D16 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = B946AA832F4A4FFB00999D16;
 					};
 				};
 			};
@@ -100,12 +152,20 @@
 			projectRoot = "";
 			targets = (
 				B946AA832F4A4FFB00999D16 /* TreeAR */,
+				B946AB052F4A4FFB00999D16 /* TreeARTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B946AA822F4A4FFB00999D16 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B946AB042F4A4FFB00999D16 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +182,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B946AB022F4A4FFB00999D16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B946AB072F4A4FFB00999D16 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B946AA832F4A4FFB00999D16 /* TreeAR */;
+			targetProxy = B946AB062F4A4FFB00999D16 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B946AA8D2F4A4FFC00999D16 /* Debug */ = {
@@ -314,6 +389,51 @@
 			};
 			name = Release;
 		};
+		B946AB082F4A4FFC00999D16 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6897VAM74N;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jayven.TreeARTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TreeAR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TreeAR";
+			};
+			name = Debug;
+		};
+		B946AB092F4A4FFC00999D16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6897VAM74N;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jayven.TreeARTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TreeAR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TreeAR";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -331,6 +451,15 @@
 			buildConfigurations = (
 				B946AA902F4A4FFC00999D16 /* Debug */,
 				B946AA912F4A4FFC00999D16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B946AB0A2F4A4FFC00999D16 /* Build configuration list for PBXNativeTarget "TreeARTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B946AB082F4A4FFC00999D16 /* Debug */,
+				B946AB092F4A4FFC00999D16 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

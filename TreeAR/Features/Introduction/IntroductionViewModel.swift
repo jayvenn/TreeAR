@@ -8,14 +8,7 @@
 import Foundation
 
 final class IntroductionViewModel {
-    
-    private let coordinator: AppCoordinator
-    
-    init(coordinator: AppCoordinator) {
-        self.coordinator = coordinator
-    }
-    
     func beginTapped() {
-        coordinator.showAR()
+        // AR adventure — coming soon
     }
 }
