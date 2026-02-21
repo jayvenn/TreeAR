@@ -17,12 +17,29 @@ enum BossPhase: Int, Comparable {
         lhs.rawValue < rhs.rawValue
     }
 
-    /// Idle duration range between attacks narrows in later phases.
     var idleDurationRange: ClosedRange<TimeInterval> {
         switch self {
-        case .phase1: return 2.2...3.0
-        case .phase2: return 1.5...2.3
-        case .phase3: return 1.0...1.8
+        case .phase1: return 1.4...2.0
+        case .phase2: return 0.9...1.4
+        case .phase3: return 0.5...0.9
+        }
+    }
+
+    /// Walk speed (meters/second) when chasing the player.
+    var moveSpeed: Float {
+        switch self {
+        case .phase1: return 0.7
+        case .phase2: return 1.0
+        case .phase3: return 1.4
+        }
+    }
+
+    /// The boss tries to close to this distance before attacking.
+    var engagementRange: Float {
+        switch self {
+        case .phase1: return 2.5
+        case .phase2: return 2.2
+        case .phase3: return 1.8
         }
     }
 }

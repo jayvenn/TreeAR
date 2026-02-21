@@ -22,8 +22,8 @@ extension ARExperienceState {
 
     var instructionText: String? {
         switch self {
-        case .scanning:         return "MOVE AROUND TO\nSEE WHAT YOU CAN FIND!"
-        case .awaitingGrassTap: return "TAP ON THE GRASS"
+        case .scanning:         return "MOVE AROUND"
+        case .awaitingGrassTap: return "TAP"
         default:                return nil
         }
     }

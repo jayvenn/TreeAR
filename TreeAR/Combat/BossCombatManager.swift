@@ -27,6 +27,7 @@ final class BossCombatManager {
 
     enum AIState: Equatable {
         case idle
+        case approaching
         case telegraphing(BossAttack)
         case executing(BossAttack)
         case recovering(BossAttack)
@@ -40,9 +41,6 @@ final class BossCombatManager {
     let maxHP: Int = 600
     private(set) var currentHP: Int = 600
 
-    /// Distance beyond which the boss taunts instead of attacking.
-    let tauntThreshold: Float = 4.0
-
     // MARK: - State
 
     private(set) var aiState: AIState = .idle
@@ -50,6 +48,11 @@ final class BossCombatManager {
     private var stateTimer: TimeInterval = 0
     private var lastAttack: BossAttack?
     private var phaseTransitioned: Set<BossPhase> = [.phase1]
+    private var tauntCooldown: TimeInterval = 0
+
+    /// True when the boss wants to walk toward the player this frame.
+    private(set) var wantsToAdvance = false
+
     var isExecutingAttack: Bool {
         if case .executing = aiState { return true }
         return false
@@ -73,6 +76,7 @@ final class BossCombatManager {
         currentHP = max(0, currentHP - amount)
         updatePhase()
         if currentHP == 0 {
+            wantsToAdvance = false
             enterState(.dying)
             delegate?.combatManagerBossDidDie(self)
         }
@@ -82,18 +86,30 @@ final class BossCombatManager {
     func update(deltaTime dt: TimeInterval, playerDistance: Float) {
         guard isAlive else { return }
         stateTimer -= dt
+        tauntCooldown -= dt
 
         switch aiState {
         case .idle:
             if stateTimer <= 0 {
-                if playerDistance > tauntThreshold {
-                    enterState(.taunting)
-                    delegate?.combatManager(self, bossDidTaunt: ())
-                } else {
-                    let attack = selectAttack()
+                if playerDistance <= phase.engagementRange {
+                    let attack = selectAttack(playerDistance: playerDistance)
                     enterState(.telegraphing(attack))
                     delegate?.combatManager(self, bossDidSelectAttack: attack)
+                } else {
+                    enterState(.approaching)
                 }
+            }
+
+        case .approaching:
+            wantsToAdvance = true
+            if playerDistance <= phase.engagementRange {
+                wantsToAdvance = false
+                let attack = selectAttack(playerDistance: playerDistance)
+                enterState(.telegraphing(attack))
+                delegate?.combatManager(self, bossDidSelectAttack: attack)
+            } else if tauntCooldown <= 0 {
+                tauntCooldown = .random(in: 4...7)
+                delegate?.combatManager(self, bossDidTaunt: ())
             }
 
         case .telegraphing(let attack):
@@ -131,6 +147,8 @@ final class BossCombatManager {
         stateTimer = 0
         lastAttack = nil
         phaseTransitioned = [.phase1]
+        wantsToAdvance = false
+        tauntCooldown = 0
     }
 
     func beginFight() {
@@ -140,9 +158,12 @@ final class BossCombatManager {
     // MARK: - Private
 
     private func enterState(_ state: AIState) {
+        if state != .approaching { wantsToAdvance = false }
         aiState = state
         switch state {
         case .idle:
+            break
+        case .approaching:
             break
         case .telegraphing(let a):
             stateTimer = a.telegraphDuration
@@ -161,13 +182,13 @@ final class BossCombatManager {
 
     private func enterIdleWithDelay() {
         aiState = .idle
-        let range = phase.idleDurationRange
-        stateTimer = TimeInterval.random(in: range)
+        stateTimer = .random(in: phase.idleDurationRange)
     }
 
-    private func selectAttack() -> BossAttack {
+    private func selectAttack(playerDistance: Float) -> BossAttack {
         let available = BossAttack.allCases.filter { $0.minimumPhase <= phase && $0 != lastAttack }
-        return available.randomElement() ?? .groundSlam
+        let reachable = available.filter { $0.threatRadius >= playerDistance * 0.85 }
+        return reachable.randomElement() ?? available.randomElement() ?? .groundSlam
     }
 
     private func updatePhase() {

@@ -20,30 +20,30 @@ extension BossAttack {
     /// Seconds the telegraph indicator is visible before the attack executes.
     var telegraphDuration: TimeInterval {
         switch self {
-        case .groundSlam:    return 1.5
-        case .sweep:         return 1.2
-        case .stompWave:     return 1.5
-        case .enragedCombo:  return 2.0
+        case .groundSlam:    return 1.0
+        case .sweep:         return 0.8
+        case .stompWave:     return 1.0
+        case .enragedCombo:  return 1.3
         }
     }
 
     /// Seconds the attack animation plays.
     var executeDuration: TimeInterval {
         switch self {
-        case .groundSlam:    return 0.6
-        case .sweep:         return 0.8
-        case .stompWave:     return 0.5
-        case .enragedCombo:  return 1.5
+        case .groundSlam:    return 0.5
+        case .sweep:         return 0.6
+        case .stompWave:     return 0.4
+        case .enragedCombo:  return 1.2
         }
     }
 
     /// Seconds the boss is vulnerable after the attack.
     var recoveryDuration: TimeInterval {
         switch self {
-        case .groundSlam:    return 1.2
-        case .sweep:         return 1.0
-        case .stompWave:     return 0.8
-        case .enragedCombo:  return 1.5
+        case .groundSlam:    return 0.9
+        case .sweep:         return 0.7
+        case .stompWave:     return 0.6
+        case .enragedCombo:  return 1.0
         }
     }
 
