@@ -32,11 +32,7 @@ extension SCNNode {
         return node
     }
 
-    func runFadeInAction(completion: @escaping () -> Void) {
-        runAction(SCNAction.sequence([SCNAction.fadeIn(duration: animationDuration)])) {
-            completion()
-        }
-    }
+
 }
 
 extension SCNVector3 {

@@ -379,7 +379,7 @@ final class ARViewController: UIViewController {
     // MARK: - Scene 8: stack animation
     func runStackLesson(onNode node: SCNNode) {
         if let textNode = node.childNode(withName: "text node", recursively: true) {
-            textNode.runFadeInAction { }
+            textNode.runAction(.sequence([.fadeIn(duration: animationDuration)]))
         }
         containerBoxNode.cubeNodes = cubeNodes
         containerBoxNode.runFadeInAction {
