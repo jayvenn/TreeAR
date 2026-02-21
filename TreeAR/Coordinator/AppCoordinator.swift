@@ -19,7 +19,8 @@ import Observation
 final class AppCoordinator {
 
     /// Set to `true` to push the full-screen AR experience.
-    private(set) var showARExperience = false
+    /// Internal setter required for SwiftUI `@Bindable` two-way binding.
+    var showARExperience = false
 
     // MARK: - Navigation actions
 

@@ -15,6 +15,12 @@ import AVFoundation
 protocol ARExperienceViewModelDelegate: AnyObject {
     func viewModel(_ viewModel: ARExperienceViewModel,
                    didTransitionTo state: ARExperienceState)
+    func viewModelDidUpdateCombat(_ viewModel: ARExperienceViewModel,
+                                  playerHP: PlayerCombatState,
+                                  bossHPFraction: Float,
+                                  playerDistance: Float)
+    func viewModelPlayerDidTakeDamage(_ viewModel: ARExperienceViewModel)
+    func viewModelBossDidEnterPhase(_ viewModel: ARExperienceViewModel, phase: BossPhase)
 }
 
 // MARK: - ViewModel
@@ -25,6 +31,7 @@ protocol ARExperienceViewModelDelegate: AnyObject {
 ///   - Advance `ARExperienceState` in a strictly controlled, testable way.
 ///   - Orchestrate `ARSceneDirector` (what to render) and `AudioService` (what to play).
 ///   - Own all timers/async work so they can be cancelled cleanly via `suspend()`.
+///   - Drive combat loop via per-frame updates during `.combatActive`.
 ///
 /// **Threading contract:** All public methods must be called from the **main thread**.
 /// The ViewModel never touches UIKit — the `delegate` (ViewController) owns all UI.
@@ -35,6 +42,14 @@ final class ARExperienceViewModel: NSObject {
     let sceneDirector: ARSceneDirector
     let audioService:  AudioService
     private let speechSynthesizer = AVSpeechSynthesizer()
+
+    // MARK: - Combat subsystem
+
+    let bossCombat = BossCombatManager()
+    var playerState = PlayerCombatState()
+    private let haptics = UIImpactFeedbackGenerator(style: .heavy)
+    private let lightHaptics = UIImpactFeedbackGenerator(style: .light)
+    private var lastUpdateTime: TimeInterval = 0
 
     // MARK: - State machine
 
@@ -67,6 +82,9 @@ final class ARExperienceViewModel: NSObject {
         self.audioService  = audioService
         super.init()
         speechSynthesizer.delegate = self
+        bossCombat.delegate = self
+        haptics.prepare()
+        lightHaptics.prepare()
     }
 
     // MARK: - Lifecycle
@@ -123,6 +141,82 @@ final class ARExperienceViewModel: NSObject {
         }
     }
 
+    /// Tap-to-attack during combat. Called for any screen tap.
+    func handleCombatTap() {
+        assertMainThread()
+        guard state.acceptsCombatTaps else { return }
+
+        let now = CACurrentMediaTime()
+        guard playerState.canAttack(at: now) else { return }
+        playerState.recordAttack(at: now)
+
+        guard let cameraTransform = currentCameraTransform() else { return }
+        let distance = sceneDirector.distanceToBoss(cameraTransform: cameraTransform)
+
+        if distance <= playerState.attackRange {
+            bossCombat.takeDamage(playerState.attackDamage)
+            sceneDirector.playBossHitFlash()
+            haptics.impactOccurred()
+            audioService.play(.hit)
+        } else {
+            lightHaptics.impactOccurred()
+            audioService.play(.whiff)
+        }
+    }
+
+    /// Retry after player death.
+    func handleRetry() {
+        assertMainThread()
+        guard state == .playerDefeated else { return }
+        playerState.reset()
+        bossCombat.reset()
+        sceneDirector.removeBoss()
+        beginBossSpawn()
+    }
+
+    // MARK: - Per-Frame Update (called from renderer delegate)
+
+    /// The ViewController's `SCNSceneRendererDelegate` calls this every frame during combat.
+    func updateCombat(atTime time: TimeInterval, cameraTransform: simd_float4x4) {
+        guard state == .combatActive else { return }
+
+        let dt: TimeInterval
+        if lastUpdateTime == 0 {
+            dt = 1.0 / 60.0
+        } else {
+            dt = min(time - lastUpdateTime, 0.1)
+        }
+        lastUpdateTime = time
+
+        playerState.update(deltaTime: dt)
+
+        let distance = sceneDirector.distanceToBoss(cameraTransform: cameraTransform)
+        bossCombat.update(deltaTime: dt, playerDistance: distance)
+
+        sceneDirector.updateBossFacing(cameraTransform: cameraTransform)
+
+        if bossCombat.isExecutingAttack, let attack = bossCombat.currentAttack {
+            let inThreatRange = distance <= attack.threatRadius
+            let passesArcCheck = !attack.isFrontalOnly ||
+                !sceneDirector.isCameraBehindBoss(cameraTransform: cameraTransform)
+
+            if inThreatRange && passesArcCheck && !playerState.isInvulnerable {
+                playerState.takeDamage(attack.damage)
+                delegate?.viewModelPlayerDidTakeDamage(self)
+                haptics.impactOccurred()
+
+                if !playerState.isAlive {
+                    transition(to: .playerDefeated)
+                }
+            }
+        }
+
+        delegate?.viewModelDidUpdateCombat(self,
+                                           playerHP: playerState,
+                                           bossHPFraction: bossCombat.hpFraction,
+                                           playerDistance: distance)
+    }
+
     // MARK: - Private — scene flow
 
     private func beginBoxPresentation() {
@@ -134,7 +228,6 @@ final class ARExperienceViewModel: NSObject {
             self.sceneDirector.presentMagicBox { [weak self] in
                 guard let self else { return }
                 self.transition(to: .awaitingBoxTap)
-                // Show the tap hint after a delay so the user can appreciate the box first
                 self.schedule(after: 10) { [weak self] in
                     guard self?.state == .awaitingBoxTap else { return }
                     self?.transition(to: .awaitingBoxTapHinted)
@@ -157,10 +250,38 @@ final class ARExperienceViewModel: NSObject {
             self.schedule(after: 16) { [weak self] in
                 guard let self else { return }
                 self.sceneDirector.lowerGuardian { [weak self] in
-                    self?.transition(to: .complete)
+                    self?.beginBossSpawn()
                 }
             }
         }
+    }
+
+    private func beginBossSpawn() {
+        transition(to: .bossSpawning)
+        audioService.play(.bossIntro)
+
+        sceneDirector.spawnBoss { [weak self] in
+            guard let self else { return }
+            self.lastUpdateTime = 0
+            self.playerState.reset()
+            self.bossCombat.reset()
+            self.bossCombat.beginFight()
+            self.transition(to: .combatActive)
+            self.audioService.play(.combatLoop)
+        }
+    }
+
+    // MARK: - Private — camera access
+
+    /// Stored by the ViewController so the ViewModel can read it without holding ARSCNView.
+    private(set) var latestCameraTransform: simd_float4x4?
+
+    func updateCameraTransform(_ transform: simd_float4x4) {
+        latestCameraTransform = transform
+    }
+
+    private func currentCameraTransform() -> simd_float4x4? {
+        latestCameraTransform
     }
 
     // MARK: - Private — utilities
@@ -204,5 +325,46 @@ extension ARExperienceViewModel: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didFinish utterance: AVSpeechUtterance) {
         // Reserved for future chapter hooks.
+    }
+}
+
+// MARK: - BossCombatDelegate
+
+extension ARExperienceViewModel: BossCombatDelegate {
+
+    func combatManager(_ manager: BossCombatManager, bossDidSelectAttack attack: BossAttack) {
+        sceneDirector.playTelegraphAnimation(for: attack)
+        audioService.play(.telegraph)
+    }
+
+    func combatManager(_ manager: BossCombatManager, bossDidExecuteAttack attack: BossAttack) {
+        sceneDirector.playExecuteAnimation(for: attack)
+        audioService.play(.bossAttack)
+    }
+
+    func combatManager(_ manager: BossCombatManager, bossDidFinishRecoveryFrom attack: BossAttack) {
+        sceneDirector.playRecoveryAnimation(for: attack)
+    }
+
+    func combatManager(_ manager: BossCombatManager, bossDidEnterPhase phase: BossPhase) {
+        sceneDirector.playEnrageEffect(phase: phase)
+        delegate?.viewModelBossDidEnterPhase(self, phase: phase)
+        audioService.play(.bossRoar)
+    }
+
+    func combatManagerBossDidDie(_ manager: BossCombatManager) {
+        transition(to: .bossDefeated)
+        audioService.stop(.combatLoop)
+        audioService.play(.bossDefeat)
+
+        sceneDirector.playBossDeathAnimation { [weak self] in
+            guard let self else { return }
+            self.sceneDirector.removeBoss()
+            self.transition(to: .victory)
+        }
+    }
+
+    func combatManager(_ manager: BossCombatManager, bossDidTaunt: Void) {
+        audioService.play(.bossRoar)
     }
 }

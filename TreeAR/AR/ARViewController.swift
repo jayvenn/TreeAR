@@ -15,6 +15,7 @@ import ARKit
 ///   - Maintain the `instructionLabel` and `surfaceScanningView` overlays.
 ///   - Bridge ARKit delegate callbacks → `ARExperienceViewModel`.
 ///   - Translate ViewModel state changes → UI updates.
+///   - Present `CombatHUDView` during boss fight states.
 ///
 /// **Non-responsibilities (what this class does NOT do):**
 ///   - Manage SceneKit nodes.
@@ -55,6 +56,17 @@ final class ARViewController: UIViewController {
         return view
     }()
 
+    private lazy var combatHUD: CombatHUDView = {
+        let hud = CombatHUDView(frame: .zero)
+        hud.translatesAutoresizingMaskIntoConstraints = false
+        hud.alpha = 0
+        hud.isUserInteractionEnabled = true
+        hud.onRetryTapped = { [weak self] in
+            self?.viewModel.handleRetry()
+        }
+        return hud
+    }()
+
     // MARK: - Init
 
     init(viewModel: ARExperienceViewModel) {
@@ -93,14 +105,20 @@ final class ARViewController: UIViewController {
     private func startARSession() {
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = .horizontal
+        config.environmentTexturing = .automatic
+
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+            config.frameSemantics.insert(.personSegmentationWithDepth)
+        }
+
         sceneView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
     }
 
     /// Disables further plane detection once a surface has been claimed.
-    /// Reduces ARKit overhead significantly for the remainder of the experience.
     private func lockPlaneDetection() {
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = []
+        config.environmentTexturing = .automatic
         sceneView.session.run(config, options: [])
     }
 
@@ -115,6 +133,7 @@ final class ARViewController: UIViewController {
     private func setupLayout() {
         view.addSubview(surfaceScanningView)
         view.addSubview(instructionLabel)
+        view.addSubview(combatHUD)
 
         NSLayoutConstraint.activate([
             surfaceScanningView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -125,7 +144,12 @@ final class ARViewController: UIViewController {
             instructionLabel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
             instructionLabel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
             instructionLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            instructionLabel.heightAnchor.constraint(equalToConstant: 52)
+            instructionLabel.heightAnchor.constraint(equalToConstant: 52),
+
+            combatHUD.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            combatHUD.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            combatHUD.topAnchor.constraint(equalTo: view.topAnchor),
+            combatHUD.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
@@ -138,6 +162,15 @@ final class ARViewController: UIViewController {
     // MARK: - Tap Handling
 
     @objc private func handleSceneViewTap(_ recognizer: UITapGestureRecognizer) {
+        if viewModel.state.acceptsCombatTaps {
+            viewModel.handleCombatTap()
+            return
+        }
+
+        if viewModel.state == .playerDefeated {
+            return
+        }
+
         let location = recognizer.location(in: sceneView)
         guard let nodeName = viewModel.sceneDirector.hitNodeName(at: location,
                                                                   in: sceneView) else { return }
@@ -166,6 +199,23 @@ final class ARViewController: UIViewController {
             self.surfaceScanningView.alpha = 0
         }
     }
+
+    private func showCombatHUD() {
+        UIView.animate(withDuration: 0.4) {
+            self.combatHUD.alpha = 1
+        }
+        combatHUD.updateBossHP(fraction: 1.0, animated: false)
+        combatHUD.updatePlayerHP(current: viewModel.playerState.maxHP,
+                                 max: viewModel.playerState.maxHP)
+        combatHUD.updateRangeIndicator(inRange: false)
+        combatHUD.hideRetryPrompt()
+    }
+
+    private func hideCombatHUD() {
+        UIView.animate(withDuration: 0.4) {
+            self.combatHUD.alpha = 0
+        }
+    }
 }
 
 // MARK: - ARExperienceViewModelDelegate
@@ -174,7 +224,6 @@ extension ARViewController: ARExperienceViewModelDelegate {
 
     func viewModel(_ viewModel: ARExperienceViewModel,
                    didTransitionTo state: ARExperienceState) {
-        // Update scanning overlay
         if state.showsScanningOverlay {
             showScanningOverlay()
         } else if state == .awaitingGrassTap {
@@ -182,12 +231,47 @@ extension ARViewController: ARExperienceViewModelDelegate {
             lockPlaneDetection()
         }
 
-        // Update instruction label
         if let text = state.instructionText {
             showInstruction(text)
         } else if !state.showsScanningOverlay {
             hideInstruction()
         }
+
+        if state.showsCombatHUD {
+            showCombatHUD()
+        }
+
+        switch state {
+        case .playerDefeated:
+            combatHUD.showRetryPrompt()
+        case .victory:
+            schedule(after: 3.0) { [weak self] in
+                self?.hideCombatHUD()
+            }
+        default:
+            break
+        }
+    }
+
+    func viewModelDidUpdateCombat(_ viewModel: ARExperienceViewModel,
+                                  playerHP: PlayerCombatState,
+                                  bossHPFraction: Float,
+                                  playerDistance: Float) {
+        combatHUD.updateBossHP(fraction: bossHPFraction)
+        combatHUD.updatePlayerHP(current: playerHP.currentHP, max: playerHP.maxHP)
+        combatHUD.updateRangeIndicator(inRange: playerDistance <= playerHP.attackRange)
+    }
+
+    func viewModelPlayerDidTakeDamage(_ viewModel: ARExperienceViewModel) {
+        combatHUD.flashDamage()
+    }
+
+    func viewModelBossDidEnterPhase(_ viewModel: ARExperienceViewModel, phase: BossPhase) {
+        combatHUD.showPhaseTransition(phase)
+    }
+
+    private func schedule(after delay: TimeInterval, block: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: block)
     }
 }
 
@@ -195,8 +279,6 @@ extension ARViewController: ARExperienceViewModelDelegate {
 
 extension ARViewController: ARSCNViewDelegate {
 
-    /// Called on ARKit's internal thread when a new anchor is added.
-    /// We dispatch to main immediately — all coordinator calls require the main thread.
     func renderer(_ renderer: SCNSceneRenderer,
                   didAdd node: SCNNode,
                   for anchor: ARAnchor) {
@@ -206,10 +288,19 @@ extension ARViewController: ARSCNViewDelegate {
         }
     }
 
-    // NOTE: `renderer(_:didRenderScene:atTime:)` is intentionally NOT implemented.
-    // The previous implementation dispatched to the main thread on every 60 fps frame,
-    // causing substantial main-thread pressure. Plane detection via `didAdd(_:for:)` is
-    // both sufficient and far more efficient.
+    /// Called on SceneKit's renderer thread every frame (~60 Hz).
+    /// We capture the camera transform here and dispatch all logic to main.
+    /// The state check is inside the `main.async` block so we never read
+    /// ViewModel properties from the renderer thread (avoids data races).
+    func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        guard let frame = sceneView.session.currentFrame else { return }
+        let transform = frame.camera.transform
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.viewModel.state == .combatActive else { return }
+            self.viewModel.updateCameraTransform(transform)
+            self.viewModel.updateCombat(atTime: time, cameraTransform: transform)
+        }
+    }
 }
 
 // MARK: - ARSessionDelegate

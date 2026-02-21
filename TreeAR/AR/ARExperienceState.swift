@@ -25,8 +25,19 @@ enum ARExperienceState: Equatable {
     case boxOpening
     /// Guardian is rising, speaking, then lowering.
     case guardianPresenting
-    /// Guardian has returned — the experience is complete.
-    case complete
+
+    // MARK: - Boss Fight States
+
+    /// Boss is emerging from portal. Cinematic, no input.
+    case bossSpawning
+    /// Active combat. Player can tap to attack.
+    case combatActive
+    /// Boss death animation playing. No input.
+    case bossDefeated
+    /// Player died. Showing retry prompt.
+    case playerDefeated
+    /// Post-combat victory screen.
+    case victory
 }
 
 // MARK: - UI Metadata
@@ -37,10 +48,13 @@ extension ARExperienceState {
     /// `nil` means the label should be hidden (fade-out handled by the VC).
     var instructionText: String? {
         switch self {
-        case .scanning:           return "MOVE AROUND TO\nSEE WHAT YOU CAN FIND!"
-        case .awaitingGrassTap:   return "TAP ON THE GRASS\nTO SEE WHAT'S AROUND."
-        case .awaitingBoxTapHinted: return "TAP ON THE BOX\nTO OPEN UP THE BOX."
-        default:                  return nil
+        case .scanning:              return "MOVE AROUND TO\nSEE WHAT YOU CAN FIND!"
+        case .awaitingGrassTap:      return "TAP ON THE GRASS\nTO SEE WHAT'S AROUND."
+        case .awaitingBoxTapHinted:  return "TAP ON THE BOX\nTO OPEN UP THE BOX."
+        case .bossSpawning:          return "SOMETHING IS EMERGING…"
+        case .playerDefeated:        return "TAP TO TRY AGAIN"
+        case .victory:               return "THE HOLLOW HAS FALLEN"
+        default:                     return nil
         }
     }
 
@@ -56,4 +70,15 @@ extension ARExperienceState {
         default:                                         return []
         }
     }
+
+    /// Whether the combat HUD (HP bars, range indicator) should be visible.
+    var showsCombatHUD: Bool {
+        switch self {
+        case .combatActive, .bossDefeated, .playerDefeated: return true
+        default: return false
+        }
+    }
+
+    /// Whether tap-anywhere-to-attack is active.
+    var acceptsCombatTaps: Bool { self == .combatActive }
 }
