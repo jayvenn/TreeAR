@@ -13,8 +13,8 @@ import ARKit
 /// **Responsibilities (what this class does):**
 ///   - Own and configure the `ARSCNView`.
 ///   - Maintain the `instructionLabel` and `surfaceScanningView` overlays.
-///   - Bridge ARKit delegate callbacks → `ARExperienceCoordinator`.
-///   - Translate coordinator state changes → UI updates.
+///   - Bridge ARKit delegate callbacks → `ARExperienceViewModel`.
+///   - Translate ViewModel state changes → UI updates.
 ///
 /// **Non-responsibilities (what this class does NOT do):**
 ///   - Manage SceneKit nodes.
@@ -24,7 +24,7 @@ final class ARViewController: UIViewController {
 
     // MARK: - Dependencies
 
-    private let coordinator: ARExperienceCoordinator
+    private let viewModel: ARExperienceViewModel
 
     // MARK: - AR
 
@@ -57,13 +57,13 @@ final class ARViewController: UIViewController {
 
     // MARK: - Init
 
-    init(coordinator: ARExperienceCoordinator) {
-        self.coordinator = coordinator
+    init(viewModel: ARExperienceViewModel) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("Use init(coordinator:)") }
+    required init?(coder: NSCoder) { fatalError("Use init(viewModel:)") }
 
     // MARK: - Lifecycle
 
@@ -72,20 +72,20 @@ final class ARViewController: UIViewController {
         setupSceneView()
         setupLayout()
         setupTapGesture()
-        coordinator.delegate = self
-        coordinator.prepare()
+        viewModel.delegate = self
+        viewModel.prepare()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         startARSession()
-        coordinator.start()
+        viewModel.start()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         sceneView.session.pause()
-        coordinator.suspend()
+        viewModel.suspend()
     }
 
     // MARK: - AR Session
@@ -139,9 +139,9 @@ final class ARViewController: UIViewController {
 
     @objc private func handleSceneViewTap(_ recognizer: UITapGestureRecognizer) {
         let location = recognizer.location(in: sceneView)
-        guard let nodeName = coordinator.sceneDirector.hitNodeName(at: location,
-                                                                    in: sceneView) else { return }
-        coordinator.handleTap(on: nodeName)
+        guard let nodeName = viewModel.sceneDirector.hitNodeName(at: location,
+                                                                  in: sceneView) else { return }
+        viewModel.handleTap(on: nodeName)
     }
 
     // MARK: - UI Updates
@@ -168,12 +168,12 @@ final class ARViewController: UIViewController {
     }
 }
 
-// MARK: - ARExperienceCoordinatorDelegate
+// MARK: - ARExperienceViewModelDelegate
 
-extension ARViewController: ARExperienceCoordinatorDelegate {
+extension ARViewController: ARExperienceViewModelDelegate {
 
-    func coordinator(_ coordinator: ARExperienceCoordinator,
-                     didTransitionTo state: ARExperienceState) {
+    func viewModel(_ viewModel: ARExperienceViewModel,
+                   didTransitionTo state: ARExperienceState) {
         // Update scanning overlay
         if state.showsScanningOverlay {
             showScanningOverlay()
@@ -202,7 +202,7 @@ extension ARViewController: ARSCNViewDelegate {
                   for anchor: ARAnchor) {
         guard anchor is ARPlaneAnchor else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.coordinator.surfaceDetected(trackerNode: node)
+            self?.viewModel.surfaceDetected(trackerNode: node)
         }
     }
 

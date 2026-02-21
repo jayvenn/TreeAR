@@ -7,14 +7,19 @@
 
 import Foundation
 
+/// Presentation logic for the introduction screen.
+///
+/// The ViewModel delegates all navigation decisions to `AppCoordinator`,
+/// keeping screen-to-screen routing out of the ViewController and the ViewModel.
 final class IntroductionViewModel {
-    private let onBegin: () -> Void
 
-    init(onBegin: @escaping () -> Void = {}) {
-        self.onBegin = onBegin
+    private weak var coordinator: AppCoordinator?
+
+    init(coordinator: AppCoordinator) {
+        self.coordinator = coordinator
     }
 
     func beginTapped() {
-        onBegin()
+        coordinator?.startARExperience()
     }
 }

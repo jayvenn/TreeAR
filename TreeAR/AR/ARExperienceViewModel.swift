@@ -1,5 +1,5 @@
 //
-//  ARExperienceCoordinator.swift
+//  ARExperienceViewModel.swift
 //  TreeAR
 //
 //  Created by Jayven on Feb 21, 2026.
@@ -10,49 +10,48 @@ import AVFoundation
 
 // MARK: - Delegate
 
-/// The `ARViewController` implements this protocol to react to state changes
-/// without knowing anything about the business logic that produced them.
-protocol ARExperienceCoordinatorDelegate: AnyObject {
-    func coordinator(_ coordinator: ARExperienceCoordinator,
-                     didTransitionTo state: ARExperienceState)
+/// `ARViewController` conforms to this protocol to receive state-change
+/// notifications without knowing anything about the business logic that produced them.
+protocol ARExperienceViewModelDelegate: AnyObject {
+    func viewModel(_ viewModel: ARExperienceViewModel,
+                   didTransitionTo state: ARExperienceState)
 }
 
-// MARK: - Coordinator
+// MARK: - ViewModel
 
-/// Owns the AR adventure's state machine.
+/// Manages all presentation state for the AR experience screen.
 ///
 /// **Responsibilities:**
 ///   - Advance `ARExperienceState` in a strictly controlled, testable way.
 ///   - Orchestrate `ARSceneDirector` (what to render) and `AudioService` (what to play).
-///   - Own all timers/async work and cancel them cleanly on `suspend()`.
+///   - Own all timers/async work so they can be cancelled cleanly via `suspend()`.
 ///
-/// **Threading contract:** All methods must be called from the **main thread**.
-/// The coordinator never touches UIKit directly — the `delegate` (ViewController)
-/// handles all UI updates in response to state transitions.
-final class ARExperienceCoordinator: NSObject {
+/// **Threading contract:** All public methods must be called from the **main thread**.
+/// The ViewModel never touches UIKit — the `delegate` (ViewController) owns all UI.
+final class ARExperienceViewModel: NSObject {
 
     // MARK: - Dependencies
 
     let sceneDirector: ARSceneDirector
-    let audioService: AudioService
+    let audioService:  AudioService
     private let speechSynthesizer = AVSpeechSynthesizer()
 
     // MARK: - State machine
 
-    /// Current phase of the experience.
-    /// Setting this property automatically notifies the delegate.
+    /// Current phase of the AR experience.
+    /// Every assignment automatically notifies the delegate.
     private(set) var state: ARExperienceState = .idle {
         didSet {
             guard state != oldValue else { return }
-            delegate?.coordinator(self, didTransitionTo: state)
+            delegate?.viewModel(self, didTransitionTo: state)
         }
     }
 
-    weak var delegate: ARExperienceCoordinatorDelegate?
+    weak var delegate: ARExperienceViewModelDelegate?
 
     // MARK: - Cancellable work
 
-    /// All in-flight `DispatchWorkItem`s. Cancelled as a group by `suspend()`.
+    /// All in-flight `DispatchWorkItem`s — cancelled as a group by `suspend()`.
     private var pendingWork: [DispatchWorkItem] = []
 
     // MARK: - Speech
@@ -108,15 +107,12 @@ final class ARExperienceCoordinator: NSObject {
 
     // MARK: - User Interaction
 
-    /// Routes a tap on a named SceneKit node through the current state's tap whitelist.
+    /// Routes a tap on a named SceneKit node through the current state's whitelist.
     /// Silently dropped if the node name is not valid in the current state.
     func handleTap(on nodeName: String) {
         assertMainThread()
         guard state.tappableNodeNames.contains(nodeName) else { return }
 
-        // By the time we reach here, `tappableNodeNames` has already validated
-        // that `nodeName` is legal for the current state — no redundant node-name
-        // checks required below.
         switch state {
         case .awaitingGrassTap:
             beginBoxPresentation()
@@ -138,7 +134,7 @@ final class ARExperienceCoordinator: NSObject {
             self.sceneDirector.presentMagicBox { [weak self] in
                 guard let self else { return }
                 self.transition(to: .awaitingBoxTap)
-                // Reveal the tap hint after a delay so the user can appreciate the box first
+                // Show the tap hint after a delay so the user can appreciate the box first
                 self.schedule(after: 10) { [weak self] in
                     guard self?.state == .awaitingBoxTap else { return }
                     self?.transition(to: .awaitingBoxTapHinted)
@@ -155,8 +151,7 @@ final class ARExperienceCoordinator: NSObject {
             self.transition(to: .guardianPresenting)
 
             self.sceneDirector.raiseGuardian(from: mainNode) { [weak self] in
-                guard let self else { return }
-                self.speak(.coding)
+                self?.speak(.coding)
             }
 
             self.schedule(after: 16) { [weak self] in
@@ -170,20 +165,15 @@ final class ARExperienceCoordinator: NSObject {
 
     // MARK: - Private — utilities
 
-    /// Transitions to `newState`.  Must be called on the main thread.
     private func transition(to newState: ARExperienceState) {
         assertMainThread()
         state = newState
     }
 
-    /// Schedules `block` on the main queue after `delay` seconds.
-    /// The returned `DispatchWorkItem` is tracked and cancelled by `suspend()`.
     @discardableResult
     private func schedule(after delay: TimeInterval,
-                           block: @escaping () -> Void) -> DispatchWorkItem {
-        // Remove already-cancelled items to prevent unbounded growth
+                          block: @escaping () -> Void) -> DispatchWorkItem {
         pendingWork.removeAll { $0.isCancelled }
-
         let item = DispatchWorkItem(block: block)
         pendingWork.append(item)
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
@@ -204,13 +194,13 @@ final class ARExperienceCoordinator: NSObject {
 
     private func assertMainThread(function: StaticString = #function) {
         assert(Thread.isMainThread,
-               "ARExperienceCoordinator.\(function) must be called on the main thread.")
+               "ARExperienceViewModel.\(function) must be called on the main thread.")
     }
 }
 
 // MARK: - AVSpeechSynthesizerDelegate
 
-extension ARExperienceCoordinator: AVSpeechSynthesizerDelegate {
+extension ARExperienceViewModel: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didFinish utterance: AVSpeechUtterance) {
         // Reserved for future chapter hooks.

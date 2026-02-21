@@ -7,20 +7,28 @@
 
 import SwiftUI
 
+/// Root SwiftUI view.
+///
+/// Observes `AppCoordinator` and reacts to navigation events:
+/// - Presents the intro screen initially.
+/// - Presents the AR experience full-screen when the coordinator fires.
 struct ContentView: View {
-    @State private var showAR = false
+
+    @ObservedObject var coordinator: AppCoordinator
 
     var body: some View {
         IntroductionViewRepresentable(
-            viewModel: IntroductionViewModel { showAR = true }
+            viewModel: IntroductionViewModel(coordinator: coordinator)
         )
         .ignoresSafeArea()
-        .fullScreenCover(isPresented: $showAR) {
+        .fullScreenCover(isPresented: $coordinator.showARExperience) {
             ARViewRepresentable()
                 .ignoresSafeArea()
         }
     }
 }
+
+// MARK: - UIViewControllerRepresentable bridges
 
 struct IntroductionViewRepresentable: UIViewControllerRepresentable {
     let viewModel: IntroductionViewModel
@@ -35,19 +43,19 @@ struct IntroductionViewRepresentable: UIViewControllerRepresentable {
 }
 
 struct ARViewRepresentable: UIViewControllerRepresentable {
+    /// Composition root: all concrete service types are constructed here,
+    /// keeping every ViewController and ViewModel free of direct dependencies.
     func makeUIViewController(context: Context) -> ARViewController {
-        // Composition root: build the dependency graph here, keeping
-        // all concrete types out of the ViewController and SwiftUI layer.
         let audioService  = AudioService()
         let sceneDirector = ARSceneDirector()
-        let coordinator   = ARExperienceCoordinator(sceneDirector: sceneDirector,
-                                                    audioService: audioService)
-        return ARViewController(coordinator: coordinator)
+        let viewModel     = ARExperienceViewModel(sceneDirector: sceneDirector,
+                                                  audioService: audioService)
+        return ARViewController(viewModel: viewModel)
     }
 
     func updateUIViewController(_ uiViewController: ARViewController, context: Context) {}
 }
 
 #Preview {
-    ContentView()
+    ContentView(coordinator: AppCoordinator())
 }
