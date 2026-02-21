@@ -12,10 +12,12 @@ struct ContentView: View {
     
     var body: some View {
         IntroductionViewRepresentable(viewModel: IntroductionViewModel(coordinator: coordinator))
+            .ignoresSafeArea()
             .fullScreenCover(isPresented: coordinator.arPresentationBinding()) {
                 ARViewRepresentable(
                     viewModel: ARViewModel(coordinator: coordinator)
                 )
+                .ignoresSafeArea()
             }
     }
 }

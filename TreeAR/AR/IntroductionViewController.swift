@@ -12,23 +12,15 @@ class IntroductionViewController: UIViewController {
     
     private let gradientLayer = CAGradientLayer()
     
-    private let iconContainerView: UIView = {
+    private let sproutContainerView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = DesignSystem.Colors.primary.withAlphaComponent(0.12)
-        view.layer.cornerRadius = 56
+        view.backgroundColor = .clear
         view.alpha = 0
         return view
     }()
     
-    private let iconLabel: UILabel = {
-        let label = UILabel()
-        label.text = "🌱"
-        label.font = UIFont.systemFont(ofSize: 48, weight: .regular)
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
+    private let sproutView = AnimatedSproutView()
     
     private let titleLabel: UILabel = {
         let label = UILabel()
@@ -94,6 +86,7 @@ class IntroductionViewController: UIViewController {
     override func loadView() {
         super.loadView()
         view.backgroundColor = DesignSystem.Colors.background
+        view.insetsLayoutMarginsFromSafeArea = false
         setupGradient()
         setupLayouts()
         introductionPlayer?.play()
@@ -111,9 +104,11 @@ class IntroductionViewController: UIViewController {
     }
     
     private func setupLayouts() {
+        sproutView.translatesAutoresizingMaskIntoConstraints = false
+        sproutContainerView.addSubview(sproutView)
+        
         view.addSubviews(views: [
-            iconContainerView,
-            iconLabel,
+            sproutContainerView,
             titleLabel,
             subTitleLabel,
             beginButton,
@@ -123,15 +118,17 @@ class IntroductionViewController: UIViewController {
         let safe = view.safeAreaLayoutGuide
         
         NSLayoutConstraint.activate([
-            iconContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            iconContainerView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -120),
-            iconContainerView.widthAnchor.constraint(equalToConstant: 112),
-            iconContainerView.heightAnchor.constraint(equalToConstant: 112),
+            sproutContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            sproutContainerView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -100),
+            sproutContainerView.widthAnchor.constraint(equalToConstant: 140),
+            sproutContainerView.heightAnchor.constraint(equalToConstant: 200),
             
-            iconLabel.centerXAnchor.constraint(equalTo: iconContainerView.centerXAnchor),
-            iconLabel.centerYAnchor.constraint(equalTo: iconContainerView.centerYAnchor),
+            sproutView.topAnchor.constraint(equalTo: sproutContainerView.topAnchor),
+            sproutView.leadingAnchor.constraint(equalTo: sproutContainerView.leadingAnchor),
+            sproutView.trailingAnchor.constraint(equalTo: sproutContainerView.trailingAnchor),
+            sproutView.bottomAnchor.constraint(equalTo: sproutContainerView.bottomAnchor),
             
-            titleLabel.topAnchor.constraint(equalTo: iconContainerView.bottomAnchor, constant: DesignSystem.Spacing.xl),
+            titleLabel.topAnchor.constraint(equalTo: sproutContainerView.bottomAnchor, constant: DesignSystem.Spacing.xl),
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
             
@@ -153,22 +150,26 @@ class IntroductionViewController: UIViewController {
     }
     
     private func animateEntrance() {
-        iconContainerView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+        sproutContainerView.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
         
-        UIView.animate(withDuration: 0.6, delay: 0.3, usingSpringWithDamping: 0.75, initialSpringVelocity: 0) {
-            self.iconContainerView.transform = .identity
-            self.iconContainerView.alpha = 1
+        // 1. Sprout container scales in; SVG loads and runs its built-in animation (~2.35s)
+        UIView.animate(withDuration: 0.7, delay: 0.2, usingSpringWithDamping: 0.78, initialSpringVelocity: 0) {
+            self.sproutContainerView.transform = .identity
+            self.sproutContainerView.alpha = 1
         }
         
-        UIView.animate(withDuration: 0.5, delay: 0.8, options: .curveEaseOut) {
+        // 2. Title fades in as stem grows
+        UIView.animate(withDuration: 0.5, delay: 1.2, options: .curveEaseOut) {
             self.titleLabel.alpha = 1
         }
         
-        UIView.animate(withDuration: 0.5, delay: 1.2, options: .curveEaseOut) {
+        // 3. Subtitle fades in as leaves pop
+        UIView.animate(withDuration: 0.5, delay: 1.8, options: .curveEaseOut) {
             self.subTitleLabel.alpha = 1
         }
         
-        UIView.animate(withDuration: 0.5, delay: 2.2, options: .curveEaseOut) {
+        // 4. CTA and hint after sprout animation completes
+        UIView.animate(withDuration: 0.5, delay: 2.6, options: .curveEaseOut) {
             self.beginButton.alpha = 1
             self.hintLabel.alpha = 1
         } completion: { _ in
