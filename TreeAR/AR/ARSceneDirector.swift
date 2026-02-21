@@ -172,6 +172,32 @@ final class ARSceneDirector {
 
     // MARK: - Per-Frame
 
+    /// Slides the boss toward the player's XZ position at the given speed.
+    func advanceBossToward(cameraTransform: simd_float4x4, speed: Float, deltaTime: Float) {
+        guard let boss = bossNode, let tracker = trackerNode else { return }
+
+        let bossWorld = boss.worldPosition
+        let camX = cameraTransform.columns.3.x
+        let camZ = cameraTransform.columns.3.z
+
+        let dx = camX - bossWorld.x
+        let dz = camZ - bossWorld.z
+        let dist = sqrt(dx * dx + dz * dz)
+        guard dist > 0.4 else { return }
+
+        let step = min(speed * deltaTime, dist - 0.4)
+        let nx = dx / dist
+        let nz = dz / dist
+
+        let worldDelta = SCNVector3(nx * step, 0, nz * step)
+        let curLocal = boss.position
+        let curWorld = tracker.convertPosition(curLocal, to: nil)
+        let targetWorld = SCNVector3(curWorld.x + worldDelta.x, curWorld.y, curWorld.z + worldDelta.z)
+        let targetLocal = tracker.convertPosition(targetWorld, from: nil)
+
+        boss.position = SCNVector3(targetLocal.x, curLocal.y, targetLocal.z)
+    }
+
     func updateBossFacing(cameraTransform: simd_float4x4) {
         guard let boss = bossNode else { return }
         let camX = cameraTransform.columns.3.x
