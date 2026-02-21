@@ -2,7 +2,7 @@
 //  IntroductionViewModel.swift
 //  TreeAR
 //
-//  ViewModel for the introduction screen. Handles user intent and delegates navigation to the coordinator.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import Foundation

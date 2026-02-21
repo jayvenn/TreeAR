@@ -2,6 +2,8 @@
 //  UIView+Extensions.swift
 //  TreeAR
 //
+//  Created by Jayven on Feb 21, 2026.
+//
 
 import UIKit
 

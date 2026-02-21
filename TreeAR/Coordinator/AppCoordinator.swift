@@ -2,8 +2,7 @@
 //  AppCoordinator.swift
 //  TreeAR
 //
-//  Coordinates app navigation flow. The "C" in MVVM-C.
-//  Owns navigation state and presents/dismisses screens.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import SwiftUI

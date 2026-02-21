@@ -2,7 +2,7 @@
 //  PaddedLabel.swift
 //  TreeAR
 //
-//  UILabel with configurable content insets for polished cards.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import UIKit

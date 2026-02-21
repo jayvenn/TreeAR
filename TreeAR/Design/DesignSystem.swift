@@ -2,7 +2,7 @@
 //  DesignSystem.swift
 //  TreeAR
 //
-//  Mobile-first design tokens for consistent, polished UI.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import UIKit

@@ -2,7 +2,10 @@
 //  AnimatedSproutView.swift
 //  TreeAR
 //
-//  Displays AnimatedSprout.svg in a WKWebView to preserve CSS animations.
+//  Created by Jayven on Feb 21, 2026.
+//
+//  Uses pause-then-play: SVG loads with animations paused, then we unpause
+//  when visible so the animation runs in sync with the fade-in.
 //
 
 import UIKit
@@ -10,7 +13,7 @@ import WebKit
 
 final class AnimatedSproutView: UIView {
     
-    private let webView: WKWebView = {
+    private lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         let view = WKWebView(frame: .zero, configuration: config)
         view.isOpaque = false
@@ -18,6 +21,7 @@ final class AnimatedSproutView: UIView {
         view.scrollView.isScrollEnabled = false
         view.scrollView.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.navigationDelegate = self
         return view
     }()
     
@@ -40,6 +44,11 @@ final class AnimatedSproutView: UIView {
             webView.trailingAnchor.constraint(equalTo: trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+    }
+    
+    /// Loads the SVG and starts the animation when the sprout becomes visible.
+    /// Unpause happens in didFinish once the page is ready.
+    func playAnimation() {
         loadSVG()
     }
     
@@ -49,6 +58,7 @@ final class AnimatedSproutView: UIView {
               let svgString = try? String(contentsOf: url, encoding: .utf8)
         else { return }
         
+        // Pause via class – playAnimation() removes it to unpause (can't override !important with JS)
         let html = """
         <!DOCTYPE html>
         <html>
@@ -60,15 +70,28 @@ final class AnimatedSproutView: UIView {
         body { display: flex; justify-content: center; align-items: center; }
         .svg-wrap { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         .svg-wrap svg { width: 100%; height: 100%; object-fit: contain; }
+        body.paused .svg-wrap svg .stem,
+        body.paused .svg-wrap svg .leaf-anim,
+        body.paused .svg-wrap svg .leaf-2,
+        body.paused .svg-wrap svg .leaf-3,
+        body.paused .svg-wrap svg .leaf-4,
+        body.paused .svg-wrap svg .leaf-1-container { animation-play-state: paused; }
         </style>
         </head>
-        <body>
+        <body class="paused">
         <div class="svg-wrap">\(svgString)</div>
         </body>
         </html>
         """
         
         webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
+    }
+}
+
+extension AnimatedSproutView: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // DOM is ready – unpause so the animation runs
+        webView.evaluateJavaScript("document.body.classList.remove('paused');")
     }
 }
 

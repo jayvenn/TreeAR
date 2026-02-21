@@ -2,8 +2,7 @@
 //  ARViewModel.swift
 //  TreeAR
 //
-//  ViewModel for the AR experience. Holds game state and delegates navigation to the coordinator.
-//  SceneKit/ARKit-specific logic remains in ARViewController (presentation layer).
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import Foundation

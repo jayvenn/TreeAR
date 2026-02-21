@@ -2,7 +2,7 @@
 //  IntroductionViewController.swift
 //  TreeAR
 //
-//  AR adventure - Plant a seed and watch it grow!
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import UIKit
@@ -76,7 +76,7 @@ class IntroductionViewController: UIViewController {
     var viewModel: IntroductionViewModel?
     
     private lazy var introductionPlayer: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "introduction", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "introduction", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.prepareToPlay()
@@ -108,9 +108,9 @@ class IntroductionViewController: UIViewController {
         sproutContainerView.addSubview(sproutView)
         
         view.addSubviews(views: [
-            sproutContainerView,
             titleLabel,
             subTitleLabel,
+            sproutContainerView,
             beginButton,
             hintLabel
         ])
@@ -118,17 +118,7 @@ class IntroductionViewController: UIViewController {
         let safe = view.safeAreaLayoutGuide
         
         NSLayoutConstraint.activate([
-            sproutContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            sproutContainerView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -100),
-            sproutContainerView.widthAnchor.constraint(equalToConstant: 140),
-            sproutContainerView.heightAnchor.constraint(equalToConstant: 200),
-            
-            sproutView.topAnchor.constraint(equalTo: sproutContainerView.topAnchor),
-            sproutView.leadingAnchor.constraint(equalTo: sproutContainerView.leadingAnchor),
-            sproutView.trailingAnchor.constraint(equalTo: sproutContainerView.trailingAnchor),
-            sproutView.bottomAnchor.constraint(equalTo: sproutContainerView.bottomAnchor),
-            
-            titleLabel.topAnchor.constraint(equalTo: sproutContainerView.bottomAnchor, constant: DesignSystem.Spacing.xl),
+            titleLabel.topAnchor.constraint(equalTo: safe.topAnchor, constant: DesignSystem.Spacing.xxl),
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
             
@@ -136,40 +126,44 @@ class IntroductionViewController: UIViewController {
             subTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.xl),
             subTitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.xl),
             
-            beginButton.topAnchor.constraint(equalTo: subTitleLabel.bottomAnchor, constant: DesignSystem.Spacing.xxl),
+            sproutContainerView.topAnchor.constraint(equalTo: subTitleLabel.bottomAnchor, constant: DesignSystem.Spacing.xl),
+            sproutContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
+            sproutContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
+            sproutContainerView.bottomAnchor.constraint(equalTo: beginButton.topAnchor, constant: -DesignSystem.Spacing.xxl),
+            
+            sproutView.topAnchor.constraint(equalTo: sproutContainerView.topAnchor),
+            sproutView.leadingAnchor.constraint(equalTo: sproutContainerView.leadingAnchor),
+            sproutView.trailingAnchor.constraint(equalTo: sproutContainerView.trailingAnchor),
+            sproutView.bottomAnchor.constraint(equalTo: sproutContainerView.bottomAnchor),
+            
+            beginButton.bottomAnchor.constraint(equalTo: hintLabel.topAnchor, constant: -DesignSystem.Spacing.md),
             beginButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             beginButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
             beginButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 52),
             
-            hintLabel.topAnchor.constraint(equalTo: beginButton.bottomAnchor, constant: DesignSystem.Spacing.md),
             hintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            hintLabel.bottomAnchor.constraint(lessThanOrEqualTo: safe.bottomAnchor, constant: -DesignSystem.Spacing.lg)
+            hintLabel.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -DesignSystem.Spacing.lg)
         ])
         
         animateEntrance()
     }
     
     private func animateEntrance() {
-        sproutContainerView.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
-        
-        // 1. Sprout container scales in; SVG loads and runs its built-in animation (~2.35s)
-        UIView.animate(withDuration: 0.7, delay: 0.2, usingSpringWithDamping: 0.78, initialSpringVelocity: 0) {
-            self.sproutContainerView.transform = .identity
-            self.sproutContainerView.alpha = 1
-        }
-        
-        // 2. Title fades in as stem grows
-        UIView.animate(withDuration: 0.5, delay: 1.2, options: .curveEaseOut) {
+        // Sequential slow fade: Hello there → subtitle → SVG → button
+        UIView.animate(withDuration: 1.2, delay: 0.8, options: .curveEaseOut) {
             self.titleLabel.alpha = 1
         }
         
-        // 3. Subtitle fades in as leaves pop
-        UIView.animate(withDuration: 0.5, delay: 1.8, options: .curveEaseOut) {
+        UIView.animate(withDuration: 1.2, delay: 2.2, options: .curveEaseOut) {
             self.subTitleLabel.alpha = 1
         }
         
-        // 4. CTA and hint after sprout animation completes
-        UIView.animate(withDuration: 0.5, delay: 2.6, options: .curveEaseOut) {
+        UIView.animate(withDuration: 1.2, delay: 3.8, options: .curveEaseOut) {
+            self.sproutView.playAnimation()
+            self.sproutContainerView.alpha = 1
+        }
+        
+        UIView.animate(withDuration: 1.2, delay: 5.4, options: .curveEaseOut) {
             self.beginButton.alpha = 1
             self.hintLabel.alpha = 1
         } completion: { _ in

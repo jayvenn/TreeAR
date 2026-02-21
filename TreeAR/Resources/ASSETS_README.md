@@ -1,5 +1,7 @@
 # TreeAR Assets
 
+Created Feb 21, 2026.
+
 Copy these assets from your Swift Playground into this folder to enable the full AR experience:
 
 ## SceneKit (.scn) files
@@ -14,9 +16,9 @@ Copy these assets from your Swift Playground into this folder to enable the full
 ## Particle system
 - `rainParticleSystem.scnp` – rain effect (in same directory as .scn files)
 
-## Audio (.m4a) files
-- `introduction.m4a` – intro screen
-- `name.m4a`, `oxygen.m4a`, `thanks.m4a` – narration
-- `SunnyWeather.m4a`, `RainyWeather.m4a`, `Rain.m4a` – ambient sounds
+## Audio (.mp3) files
+- `introduction.mp3` – intro screen
+- `name.mp3`, `oxygen.mp3`, `thanks.mp3` – narration
+- `SunnyWeather.mp3`, `RainyWeather.mp3`, `Rain.mp3` – ambient sounds
 
 The app will run with placeholder geometry if these files are missing, but the full experience requires all assets.

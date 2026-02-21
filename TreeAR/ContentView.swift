@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  TreeAR
 //
-//  Root view wired to AppCoordinator. Renders the current route.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import SwiftUI

@@ -2,7 +2,7 @@
 //  SCNParticleSystem+Rain.swift
 //  TreeAR
 //
-//  Rain particle system for AR experience.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import SceneKit

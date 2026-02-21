@@ -2,7 +2,7 @@
 //  SCNScene+TreeAR.swift
 //  TreeAR
 //
-//  SceneKit scene extensions.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import SceneKit

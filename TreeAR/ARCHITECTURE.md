@@ -1,5 +1,7 @@
 # TreeAR Architecture: MVVM-C
 
+Created Feb 21, 2026.
+
 ## Overview
 
 The app uses **MVVM-C** (Model-View-ViewModel-Coordinator):

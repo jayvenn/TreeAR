@@ -2,7 +2,7 @@
 //  TreeARConstants.swift
 //  TreeAR
 //
-//  Shared constants for AR scaling and orientation.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import Foundation

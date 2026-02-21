@@ -2,7 +2,7 @@
 //  ARViewController.swift
 //  TreeAR
 //
-//  AR experience - Plant a seed, watch it grow into a tree!
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import UIKit
@@ -49,7 +49,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var sunnyWeatherPlayer: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "SunnyWeather", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "SunnyWeather", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.numberOfLoops = -1
         player.volume = 1
@@ -58,7 +58,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var rainyWeatherPlayer: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "RainyWeather", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "RainyWeather", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.numberOfLoops = -1
@@ -67,7 +67,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var rainPlayer: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "Rain", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "Rain", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 0.5
         player.numberOfLoops = -1
@@ -76,7 +76,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var postIntroduction1Player: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "name", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "name", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.prepareToPlay()
@@ -84,7 +84,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var postIntroduction2Player: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "oxygen", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "oxygen", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.prepareToPlay()
@@ -92,7 +92,7 @@ class ARViewController: UIViewController {
     }()
     
     lazy var postIntroduction3Player: AVAudioPlayer? = {
-        guard let url = Bundle.main.url(forResource: "thanks", withExtension: "m4a"),
+        guard let url = Bundle.main.url(forResource: "thanks", withExtension: "mp3"),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.volume = 1
         player.prepareToPlay()

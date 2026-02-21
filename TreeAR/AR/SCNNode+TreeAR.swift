@@ -2,7 +2,7 @@
 //  SCNNode+TreeAR.swift
 //  TreeAR
 //
-//  SceneKit node extensions for AR assets.
+//  Created by Jayven on Feb 21, 2026.
 //
 
 import SceneKit
