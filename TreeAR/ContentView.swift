@@ -14,7 +14,9 @@ import SwiftUI
 /// - Presents the AR experience full-screen when the coordinator fires.
 struct ContentView: View {
 
-    @ObservedObject var coordinator: AppCoordinator
+    /// `@Bindable` (iOS 17+) lets us derive `$coordinator.showARExperience`
+    /// from an `@Observable` object without `ObservableObject` or `@Published`.
+    @Bindable var coordinator: AppCoordinator
 
     var body: some View {
         IntroductionViewRepresentable(

@@ -11,8 +11,8 @@ import SwiftUI
 struct TreeARApp: App {
 
     /// The single app-level coordinator that manages screen-to-screen navigation.
-    /// Owned here so its lifetime matches the app process.
-    @StateObject private var appCoordinator = AppCoordinator()
+    /// `@State` is correct for `@Observable` types (replaces `@StateObject`).
+    @State private var appCoordinator = AppCoordinator()
 
     var body: some Scene {
         WindowGroup {

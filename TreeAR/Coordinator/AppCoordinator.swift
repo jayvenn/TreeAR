@@ -5,7 +5,7 @@
 //  Created by Jayven on Feb 21, 2026.
 //
 
-import Foundation
+import Observation
 
 /// Manages top-level navigation for the app.
 ///
@@ -13,12 +13,13 @@ import Foundation
 /// ViewModels call coordinator methods instead of making navigation
 /// decisions themselves — keeping ViewModels testable and screen-agnostic.
 ///
-/// `AppCoordinator` is an `ObservableObject` so SwiftUI's `ContentView`
-/// can reactively present the AR experience when `showARExperience` flips.
-final class AppCoordinator: ObservableObject {
+/// `@Observable` (iOS 17+) gives SwiftUI fine-grained dependency tracking
+/// with no need for `ObservableObject` or `@Published`.
+@Observable
+final class AppCoordinator {
 
     /// Set to `true` to push the full-screen AR experience.
-    @Published private(set) var showARExperience = false
+    private(set) var showARExperience = false
 
     // MARK: - Navigation actions
 
