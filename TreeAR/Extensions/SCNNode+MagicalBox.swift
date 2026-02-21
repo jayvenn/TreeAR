@@ -14,6 +14,8 @@ extension SCNNode {
               let node = scene.rootNode.childNode(withName: "main", recursively: true)
         else { return SCNNode() }
         node.opacity = 0
+        let s: Float = 3.5
+        node.scale = SCNVector3(node.scale.x * s, node.scale.y * s, node.scale.z * s)
         return node
     }
 

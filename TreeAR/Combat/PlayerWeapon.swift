@@ -290,6 +290,76 @@ enum PlayerWeapon {
         }
     }
 
+    // MARK: - Machine Gun Mode
+
+    private static let machineGunColor = UIColor(red: 0.6, green: 0.2, blue: 1.0, alpha: 1)
+
+    /// Quick forward jab for rapid-fire machine gun mode.
+    static func rapidJabAnimation(onApex: @escaping () -> Void) -> SCNAction {
+        let jab = SCNAction.group([
+            .rotateTo(x: 0.05, y: CGFloat(restEuler.y), z: CGFloat(restEuler.z) - 0.1, duration: 0.04),
+            .move(by: SCNVector3(0, 0.01, -0.04), duration: 0.04)
+        ])
+        jab.timingMode = .easeOut
+        let apex = SCNAction.run { _ in onApex() }
+        let retract = SCNAction.group([
+            .rotateTo(x: CGFloat(restEuler.x), y: CGFloat(restEuler.y), z: CGFloat(restEuler.z), duration: 0.06),
+            .move(to: restPosition, duration: 0.06)
+        ])
+        retract.timingMode = .easeInEaseOut
+        return .sequence([jab, apex, retract])
+    }
+
+    /// Tints runes and edges purple for machine gun mode.
+    static func activateMachineGunVisual(on weaponNode: SCNNode) {
+        for child in weaponNode.childNodes {
+            if child.name == "weapon_rune" || child.name == "blade_edge" {
+                child.geometry?.firstMaterial?.diffuse.contents = machineGunColor
+                child.geometry?.firstMaterial?.emission.contents = machineGunColor
+                child.geometry?.firstMaterial?.emission.intensity = 3.0
+            }
+            if child.name == "guard_gem" || child.name == "pommel_gem" {
+                child.geometry?.firstMaterial?.diffuse.contents = machineGunColor
+                child.geometry?.firstMaterial?.emission.contents = machineGunColor
+            }
+        }
+    }
+
+    /// Reverts runes and edges to normal blue.
+    static func deactivateMachineGunVisual(on weaponNode: SCNNode) {
+        for child in weaponNode.childNodes {
+            if child.name == "weapon_rune" || child.name == "blade_edge" {
+                child.geometry?.firstMaterial?.diffuse.contents = bladeEdge
+                child.geometry?.firstMaterial?.emission.contents = bladeEdge
+                child.geometry?.firstMaterial?.emission.intensity = child.name == "blade_edge" ? 1.2 : 2.0
+            }
+            if child.name == "guard_gem" || child.name == "pommel_gem" {
+                child.geometry?.firstMaterial?.diffuse.contents = gemColor
+                child.geometry?.firstMaterial?.emission.contents = gemColor
+            }
+        }
+    }
+
+    static func spawnRapidTrail(on weaponNode: SCNNode) {
+        let n = SCNNode()
+        n.position = SCNVector3(0, 0.22, 0)
+        let p = SCNParticleSystem()
+        p.birthRate = 60
+        p.particleLifeSpan = 0.1
+        p.particleSize = 0.006
+        p.particleColor = machineGunColor
+        p.emitterShape = SCNBox(width: 0.02, height: 0.2, length: 0.04, chamferRadius: 0)
+        p.particleVelocity = 0.3
+        p.spreadingAngle = 45
+        p.blendMode = .additive
+        p.isLightingEnabled = false
+        p.loops = false
+        p.emissionDuration = 0.06
+        n.addParticleSystem(p)
+        weaponNode.addChildNode(n)
+        n.runAction(.sequence([.wait(duration: 0.3), .removeFromParentNode()]))
+    }
+
     /// Spawn slash trail particles at the blade position.
     static func spawnSlashTrail(on weaponNode: SCNNode) {
         let trailNode = SCNNode()

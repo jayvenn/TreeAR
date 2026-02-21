@@ -49,6 +49,15 @@ final class CombatHUDView: UIView {
     private let phaseLabel = UILabel()
     private let phaseBanner = UIView()
 
+    // MARK: - Powerup
+
+    private let powerupBar = UIView()
+    private let powerupFill = GradientView()
+    private let powerupLabel = UILabel()
+    private var powerupFillWidth: NSLayoutConstraint?
+
+    private let pickupBanner = UILabel()
+
     // MARK: - Retry
 
     private let retryContainer = UIView()
@@ -66,6 +75,8 @@ final class CombatHUDView: UIView {
         setupRange()
         setupDamageFlash()
         setupPhaseBanner()
+        setupPowerupBar()
+        setupPickupBanner()
         setupRetry()
     }
 
@@ -114,7 +125,7 @@ final class CombatHUDView: UIView {
                 heart.image = UIImage(systemName: "heart.fill")
                 heart.tintColor = .systemRed
             } else if current > threshold - hpPerHeart {
-                heart.image = UIImage(systemName: "heart.leadinghalf.fill")
+                heart.image = UIImage(systemName: "heart.lefthalf.fill")
                 heart.tintColor = .systemRed
             } else {
                 heart.image = UIImage(systemName: "heart")
@@ -185,6 +196,45 @@ final class CombatHUDView: UIView {
         anim.keyTimes = [0, 0.15, 0.35, 0.55, 0.75, 1.0]
         anim.duration = 0.3
         layer.add(anim, forKey: "shake")
+    }
+
+    // MARK: - Powerup
+
+    func updateMachineGunTimer(fraction: Float) {
+        let show = fraction > 0
+        powerupBar.isHidden = !show
+        powerupLabel.isHidden = !show
+
+        powerupFillWidth?.isActive = false
+        powerupFillWidth = powerupFill.widthAnchor.constraint(
+            equalTo: powerupBar.widthAnchor, multiplier: max(CGFloat(fraction), 0.001))
+        powerupFillWidth?.isActive = true
+        layoutIfNeeded()
+    }
+
+    func showPickupBanner(text: String, color: UIColor) {
+        pickupBanner.text = text
+        pickupBanner.textColor = color
+        pickupBanner.alpha = 0
+        pickupBanner.transform = CGAffineTransform(translationX: 0, y: 8)
+        UIView.animate(withDuration: 0.3) {
+            self.pickupBanner.alpha = 1
+            self.pickupBanner.transform = .identity
+        } completion: { _ in
+            UIView.animate(withDuration: 0.4, delay: 1.2) {
+                self.pickupBanner.alpha = 0
+            }
+        }
+    }
+
+    func flashPickup(color: UIColor) {
+        let overlay = UIView(frame: bounds)
+        overlay.backgroundColor = color.withAlphaComponent(0.15)
+        overlay.isUserInteractionEnabled = false
+        addSubview(overlay)
+        UIView.animate(withDuration: 0.35, animations: { overlay.alpha = 0 }) { _ in
+            overlay.removeFromSuperview()
+        }
     }
 
     // MARK: - Private — Vignette
@@ -376,6 +426,62 @@ final class CombatHUDView: UIView {
             phaseBanner.heightAnchor.constraint(equalToConstant: 50),
             phaseLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             phaseLabel.centerYAnchor.constraint(equalTo: phaseBanner.centerYAnchor),
+        ])
+    }
+
+    private func setupPowerupBar() {
+        powerupBar.translatesAutoresizingMaskIntoConstraints = false
+        powerupBar.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+        powerupBar.layer.cornerRadius = 3
+        powerupBar.clipsToBounds = true
+        powerupBar.isHidden = true
+        addSubview(powerupBar)
+
+        powerupFill.translatesAutoresizingMaskIntoConstraints = false
+        powerupFill.setColors([UIColor(red: 0.55, green: 0.15, blue: 1.0, alpha: 1),
+                               UIColor(red: 0.7, green: 0.3, blue: 1.0, alpha: 1)])
+        powerupFill.direction = .horizontal
+        powerupFill.layer.cornerRadius = 3
+        powerupFill.clipsToBounds = true
+        powerupBar.addSubview(powerupFill)
+
+        powerupLabel.translatesAutoresizingMaskIntoConstraints = false
+        powerupLabel.text = "WIZARD GUN"
+        powerupLabel.font = .systemFont(ofSize: 9, weight: .heavy)
+        powerupLabel.textColor = UIColor(red: 0.8, green: 0.5, blue: 1.0, alpha: 1)
+        powerupLabel.textAlignment = .center
+        powerupLabel.isHidden = true
+        addSubview(powerupLabel)
+
+        let fillWidth = powerupFill.widthAnchor.constraint(equalTo: powerupBar.widthAnchor, multiplier: 1.0)
+        powerupFillWidth = fillWidth
+
+        NSLayoutConstraint.activate([
+            powerupBar.centerXAnchor.constraint(equalTo: centerXAnchor),
+            powerupBar.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 92),
+            powerupBar.widthAnchor.constraint(equalToConstant: 140),
+            powerupBar.heightAnchor.constraint(equalToConstant: 6),
+
+            powerupFill.leadingAnchor.constraint(equalTo: powerupBar.leadingAnchor),
+            powerupFill.topAnchor.constraint(equalTo: powerupBar.topAnchor),
+            powerupFill.bottomAnchor.constraint(equalTo: powerupBar.bottomAnchor),
+            fillWidth,
+
+            powerupLabel.centerXAnchor.constraint(equalTo: powerupBar.centerXAnchor),
+            powerupLabel.topAnchor.constraint(equalTo: powerupBar.bottomAnchor, constant: 2),
+        ])
+    }
+
+    private func setupPickupBanner() {
+        pickupBanner.translatesAutoresizingMaskIntoConstraints = false
+        pickupBanner.font = .systemFont(ofSize: 16, weight: .heavy)
+        pickupBanner.textAlignment = .center
+        pickupBanner.alpha = 0
+        addSubview(pickupBanner)
+
+        NSLayoutConstraint.activate([
+            pickupBanner.centerXAnchor.constraint(equalTo: centerXAnchor),
+            pickupBanner.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 60),
         ])
     }
 

@@ -8,7 +8,7 @@
 import UIKit
 import AVFoundation
 
-class IntroductionViewController: UIViewController {
+class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
     
     private let gradientLayer = CAGradientLayer()
     
@@ -22,34 +22,9 @@ class IntroductionViewController: UIViewController {
     
     private let sproutView = AnimatedSproutView()
     
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Hello there"
-        label.textAlignment = .center
-        label.font = DesignSystem.Typography.largeTitle
-        label.textColor = DesignSystem.Colors.textPrimary
-        label.alpha = 0
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    private let subTitleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Are you ready to plant a seed?"
-        label.textAlignment = .center
-        label.font = DesignSystem.Typography.body
-        label.textColor = DesignSystem.Colors.textSecondary
-        label.alpha = 0
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.7
-        label.numberOfLines = 2
-        return label
-    }()
-    
     private lazy var beginButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Begin AR Adventure", for: .normal)
+        button.setTitle("Enter the Jungle", for: .normal)
         button.titleLabel?.font = DesignSystem.Typography.headline
         button.setTitleColor(.white, for: .normal)
         button.backgroundColor = DesignSystem.Colors.primary
@@ -60,17 +35,6 @@ class IntroductionViewController: UIViewController {
         button.contentEdgeInsets = UIEdgeInsets(top: DesignSystem.Spacing.md, left: DesignSystem.Spacing.xl, bottom: DesignSystem.Spacing.md, right: DesignSystem.Spacing.xl)
         DesignSystem.Shadow.applySubtle(to: button)
         return button
-    }()
-    
-    private let hintLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Tap anywhere to begin"
-        label.textAlignment = .center
-        label.font = DesignSystem.Typography.footnote
-        label.textColor = DesignSystem.Colors.textTertiary
-        label.alpha = 0
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
     }()
     
     var viewModel: IntroductionViewModel?
@@ -89,7 +53,12 @@ class IntroductionViewController: UIViewController {
         view.insetsLayoutMarginsFromSafeArea = false
         setupGradient()
         setupLayouts()
+        introductionPlayer?.delegate = self
         introductionPlayer?.play()
+
+        if introductionPlayer == nil {
+            showBeginButton(afterDelay: 3.0)
+        }
     }
     
     override func viewDidLayoutSubviews() {
@@ -108,25 +77,14 @@ class IntroductionViewController: UIViewController {
         sproutContainerView.addSubview(sproutView)
         
         view.addSubviews(views: [
-            titleLabel,
-            subTitleLabel,
             sproutContainerView,
-            beginButton,
-            hintLabel
+            beginButton
         ])
         
         let safe = view.safeAreaLayoutGuide
         
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: safe.topAnchor, constant: DesignSystem.Spacing.xxl),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
-            
-            subTitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: DesignSystem.Spacing.sm),
-            subTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.xl),
-            subTitleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.xl),
-            
-            sproutContainerView.topAnchor.constraint(equalTo: subTitleLabel.bottomAnchor, constant: DesignSystem.Spacing.xl),
+            sproutContainerView.topAnchor.constraint(equalTo: safe.topAnchor, constant: DesignSystem.Spacing.xxl),
             sproutContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             sproutContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
             sproutContainerView.bottomAnchor.constraint(equalTo: beginButton.topAnchor, constant: -DesignSystem.Spacing.xxl),
@@ -136,46 +94,37 @@ class IntroductionViewController: UIViewController {
             sproutView.trailingAnchor.constraint(equalTo: sproutContainerView.trailingAnchor),
             sproutView.bottomAnchor.constraint(equalTo: sproutContainerView.bottomAnchor),
             
-            beginButton.bottomAnchor.constraint(equalTo: hintLabel.topAnchor, constant: -DesignSystem.Spacing.md),
             beginButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             beginButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
+            beginButton.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -DesignSystem.Spacing.xl),
             beginButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 52),
-            
-            hintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            hintLabel.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -DesignSystem.Spacing.lg)
         ])
         
         animateEntrance()
     }
     
     private func animateEntrance() {
-        // Sequential slow fade: Hello there → subtitle → SVG → button
-        UIView.animate(withDuration: 1.2, delay: 0.8, options: .curveEaseOut) {
-            self.titleLabel.alpha = 1
-        }
-        
-        UIView.animate(withDuration: 1.2, delay: 2.2, options: .curveEaseOut) {
-            self.subTitleLabel.alpha = 1
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.8) {
+        let audioDuration = introductionPlayer?.duration ?? 3.0
+        sproutView.animationDuration = max(audioDuration - 0.6, 1.75)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             self.sproutView.playAnimation()
         }
-        UIView.animate(withDuration: 1.2, delay: 3.8, options: .curveEaseOut) {
+        UIView.animate(withDuration: 1.2, delay: 0.6, options: .curveEaseOut) {
             self.sproutContainerView.alpha = 1
         }
-        
-        UIView.animate(withDuration: 1.2, delay: 5.4, options: .curveEaseOut) {
+    }
+
+    private func showBeginButton(afterDelay delay: TimeInterval = 0) {
+        UIView.animate(withDuration: 1.0, delay: delay, options: .curveEaseOut) {
             self.beginButton.alpha = 1
-            self.hintLabel.alpha = 1
-        } completion: { _ in
-            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(self.didTapView(_:)))
-            self.view.addGestureRecognizer(tapGesture)
         }
     }
-    
-    @objc private func didTapView(_ recognizer: UITapGestureRecognizer) {
-        viewModel?.beginTapped()
+
+    // MARK: - AVAudioPlayerDelegate
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        showBeginButton()
     }
     
     @objc private func didTapBegin() {

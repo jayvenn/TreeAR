@@ -10,14 +10,27 @@ import Foundation
 /// Mutable value type tracking the player's combat stats for one fight session.
 struct PlayerCombatState {
 
-    // MARK: - Configuration
+    // MARK: - Base Configuration
 
     let maxHP: Int = 100
-    let attackDamage: Int = 10
-    let attackCooldown: TimeInterval = 0.55
-    /// Horizontal meters from boss center within which taps deal damage.
+    let baseAttackDamage: Int = 10
+    let baseAttackCooldown: TimeInterval = 0.55
     let attackRange: Float = 1.5
     let invulnerabilityDuration: TimeInterval = 1.0
+
+    // MARK: - Machine Gun Mode
+
+    let machineGunDamage: Int = 6
+    let machineGunCooldown: TimeInterval = 0.12
+    let machineGunDuration: TimeInterval = 8.0
+    private(set) var machineGunTimer: TimeInterval = 0
+    var isMachineGunActive: Bool { machineGunTimer > 0 }
+    var machineGunFraction: Float { Float(machineGunTimer / machineGunDuration) }
+
+    // MARK: - Computed
+
+    var attackDamage: Int { isMachineGunActive ? machineGunDamage : baseAttackDamage }
+    var attackCooldown: TimeInterval { isMachineGunActive ? machineGunCooldown : baseAttackCooldown }
 
     // MARK: - Runtime
 
@@ -31,7 +44,6 @@ struct PlayerCombatState {
 
     // MARK: - Mutations
 
-    /// Returns `true` if the cooldown allows an attack right now.
     mutating func canAttack(at time: TimeInterval) -> Bool {
         time - lastAttackTime >= attackCooldown
     }
@@ -47,13 +59,22 @@ struct PlayerCombatState {
         invulnerabilityTimer = invulnerabilityDuration
     }
 
-    /// Called every frame. Ticks down invulnerability.
+    mutating func heal(_ amount: Int) {
+        currentHP = min(maxHP, currentHP + amount)
+    }
+
+    mutating func activateMachineGun() {
+        machineGunTimer = machineGunDuration
+    }
+
     mutating func update(deltaTime dt: TimeInterval) {
         if isInvulnerable {
             invulnerabilityTimer -= dt
-            if invulnerabilityTimer <= 0 {
-                isInvulnerable = false
-            }
+            if invulnerabilityTimer <= 0 { isInvulnerable = false }
+        }
+        if machineGunTimer > 0 {
+            machineGunTimer -= dt
+            if machineGunTimer < 0 { machineGunTimer = 0 }
         }
     }
 
@@ -62,5 +83,6 @@ struct PlayerCombatState {
         lastAttackTime = 0
         isInvulnerable = false
         invulnerabilityTimer = 0
+        machineGunTimer = 0
     }
 }

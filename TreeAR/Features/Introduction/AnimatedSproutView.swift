@@ -12,7 +12,14 @@ import UIKit
 import WebKit
 
 final class AnimatedSproutView: UIView {
-    
+
+    /// Total duration for the full grow animation (stem + all leaves).
+    /// The default (1.75s) matches the original SVG keyframe timings.
+    /// Set before calling `playAnimation()` to scale proportionally.
+    var animationDuration: TimeInterval = 1.75
+
+    private static let originalDuration: TimeInterval = 1.75
+
     private lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         let view = WKWebView(frame: .zero, configuration: config)
@@ -90,8 +97,24 @@ final class AnimatedSproutView: UIView {
 
 extension AnimatedSproutView: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // DOM is ready – unpause so the animation runs
-        webView.evaluateJavaScript("document.body.classList.remove('paused');")
+        let scale = animationDuration / Self.originalDuration
+        let js = """
+        (function() {
+            var s = \(scale);
+            var stem = document.querySelector('.stem');
+            if (stem) { stem.style.animationDuration = (1.5 * s) + 's'; }
+            var l1 = document.querySelector('.leaf-1-container');
+            if (l1) { l1.style.animationDuration = (0.8 * s) + 's'; }
+            var l2 = document.querySelector('.leaf-2');
+            if (l2) { l2.style.animationDuration = (0.6 * s) + 's'; l2.style.animationDelay = (0.35 * s) + 's'; }
+            var l3 = document.querySelector('.leaf-3');
+            if (l3) { l3.style.animationDuration = (0.6 * s) + 's'; l3.style.animationDelay = (0.7 * s) + 's'; }
+            var l4 = document.querySelector('.leaf-4');
+            if (l4) { l4.style.animationDuration = (0.6 * s) + 's'; l4.style.animationDelay = (1.15 * s) + 's'; }
+            document.body.classList.remove('paused');
+        })();
+        """
+        webView.evaluateJavaScript(js)
     }
 }
 

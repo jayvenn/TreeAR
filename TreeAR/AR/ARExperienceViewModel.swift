@@ -20,6 +20,8 @@ protocol ARExperienceViewModelDelegate: AnyObject {
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase)
     func viewModelPlayerDidHitBoss(_ vm: ARExperienceViewModel)
     func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool)
+    func viewModelPlayerDidPickupLoot(_ vm: ARExperienceViewModel, type: LootType)
+    func viewModelMachineGunDidExpire(_ vm: ARExperienceViewModel)
 }
 
 // MARK: - ViewModel
@@ -39,6 +41,12 @@ final class ARExperienceViewModel: NSObject {
     private let rigidHaptic = UIImpactFeedbackGenerator(style: .rigid)
     private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
     private var lastUpdateTime: TimeInterval = 0
+
+    // MARK: - Loot
+
+    private var lootSpawnTimer: TimeInterval = 0
+    private let lootSpawnInterval: ClosedRange<TimeInterval> = 12...20
+    private var wasMachineGunActive = false
 
     // MARK: - State
 
@@ -110,35 +118,46 @@ final class ARExperienceViewModel: NSObject {
         }
     }
 
-    /// Tap-to-attack: triggers a weapon swing, with the hit check at the swing apex.
-    func handleCombatTap() {
+    func handleCombatTap(at location: CGPoint, in sceneView: ARSCNView) {
         assertMainThread()
         guard state.acceptsCombatTaps else { return }
+
+        if let lootName = sceneDirector.rootLootName(at: location, in: sceneView),
+           let type = sceneDirector.lootType(forNodeName: lootName),
+           let cam = latestCameraTransform,
+           let dist = sceneDirector.distanceToLoot(named: lootName, cameraTransform: cam),
+           dist <= type.pickupRange {
+            pickupLoot(type: type, named: lootName)
+            return
+        }
 
         let now = CACurrentMediaTime()
         guard playerState.canAttack(at: now) else { return }
         playerState.recordAttack(at: now)
 
-        let didSwing = sceneDirector.swingWeapon(
-            onApex: { [weak self] in
-                self?.performHitCheck()
-            },
-            onComplete: { }
-        )
-
-        if didSwing {
-            audioService.play(.whiff)
-            delegate?.viewModelPlayerDidSwing(self, isHit: false)
+        if playerState.isMachineGunActive {
+            performRapidJab()
+        } else {
+            performSwordSwing()
         }
     }
 
     func handleRetry() {
         assertMainThread()
         guard state == .playerDefeated else { return }
+
         playerState.reset()
         bossCombat.reset()
+        lootSpawnTimer = 0
+        wasMachineGunActive = false
+
+        sceneDirector.removeAllLoot()
         sceneDirector.removeBoss()
-        sceneDirector.removeWeapon()
+        sceneDirector.deactivateMachineGunMode()
+        sceneDirector.resetWeaponState()
+
+        cancelAllPendingWork()
+
         beginBossSpawn()
     }
 
@@ -152,7 +171,13 @@ final class ARExperienceViewModel: NSObject {
         else { dt = min(time - lastUpdateTime, 0.1) }
         lastUpdateTime = time
 
+        let wasMG = playerState.isMachineGunActive
         playerState.update(deltaTime: dt)
+
+        if wasMG && !playerState.isMachineGunActive {
+            sceneDirector.deactivateMachineGunMode()
+            delegate?.viewModelMachineGunDidExpire(self)
+        }
 
         let dist = sceneDirector.distanceToBoss(cameraTransform: cameraTransform)
         bossCombat.update(deltaTime: dt, playerDistance: dist)
@@ -174,13 +199,60 @@ final class ARExperienceViewModel: NSObject {
             }
         }
 
+        updateLootSpawn(dt: dt)
+
         delegate?.viewModelDidUpdateCombat(self,
                                            playerHP: playerState,
                                            bossHPFraction: bossCombat.hpFraction,
                                            playerDistance: dist)
     }
 
-    // MARK: - Private — Hit Check (fires at swing apex)
+    // MARK: - Private — Loot
+
+    private func updateLootSpawn(dt: TimeInterval) {
+        lootSpawnTimer -= dt
+        if lootSpawnTimer <= 0 {
+            let type: LootType = Bool.random() ? .healthPack : .wizardMachineGun
+            sceneDirector.spawnLoot(type: type)
+            lootSpawnTimer = .random(in: lootSpawnInterval)
+        }
+    }
+
+    private func pickupLoot(type: LootType, named name: String) {
+        sceneDirector.pickupLoot(named: name)
+        lightHaptic.impactOccurred(intensity: 1.0)
+        delegate?.viewModelPlayerDidPickupLoot(self, type: type)
+
+        switch type {
+        case .healthPack:
+            playerState.heal(40)
+        case .wizardMachineGun:
+            playerState.activateMachineGun()
+            sceneDirector.activateMachineGunMode()
+        }
+    }
+
+    // MARK: - Private — Attacks
+
+    private func performSwordSwing() {
+        let didSwing = sceneDirector.swingWeapon(
+            onApex: { [weak self] in self?.performHitCheck() },
+            onComplete: { }
+        )
+        if didSwing {
+            audioService.play(.whiff)
+        }
+    }
+
+    private func performRapidJab() {
+        let didJab = sceneDirector.rapidJabWeapon(
+            onApex: { [weak self] in self?.performHitCheck() },
+            onComplete: { }
+        )
+        if didJab {
+            audioService.play(.whiff)
+        }
+    }
 
     private func performHitCheck() {
         assertMainThread()
@@ -209,16 +281,16 @@ final class ARExperienceViewModel: NSObject {
     private func beginBossSpawn() {
         transition(to: .bossSpawning)
         audioService.play(.bossIntro)
-        audioService.stop(.background)
 
         sceneDirector.spawnBoss { [weak self] in
             guard let self else { return }
             self.lastUpdateTime = 0
             self.playerState.reset()
             self.bossCombat.reset()
+            self.lootSpawnTimer = .random(in: 8...14)
+            self.wasMachineGunActive = false
             self.bossCombat.beginFight()
             self.transition(to: .combatActive)
-            self.audioService.play(.combatLoop)
         }
     }
 
@@ -276,13 +348,13 @@ extension ARExperienceViewModel: BossCombatDelegate {
 
     func combatManagerBossDidDie(_ m: BossCombatManager) {
         transition(to: .bossDefeated)
-        audioService.stop(.combatLoop)
         audioService.play(.bossDefeat)
+
+        sceneDirector.removeAllLoot()
 
         sceneDirector.playBossDeathAnimation { [weak self] in
             guard let self else { return }
             self.sceneDirector.removeBoss()
-            self.sceneDirector.removeWeapon()
             self.transition(to: .victory)
         }
     }

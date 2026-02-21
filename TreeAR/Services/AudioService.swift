@@ -18,8 +18,6 @@ final class AudioService {
 
     enum Track: CaseIterable {
         case moveAround
-        case somethingMoving
-        case whoa
         case background
 
         // Combat audio
@@ -30,13 +28,10 @@ final class AudioService {
         case bossRoar
         case bossIntro
         case bossDefeat
-        case combatLoop
 
         fileprivate var resource: String {
             switch self {
             case .moveAround:      return "Move around"
-            case .somethingMoving: return "Something is moving"
-            case .whoa:            return "Whoa"
             case .background:      return "Echoes of the Emerald"
             case .hit:             return "combat_hit"
             case .whiff:           return "combat_whiff"
@@ -45,20 +40,18 @@ final class AudioService {
             case .bossRoar:        return "combat_boss_roar"
             case .bossIntro:       return "combat_boss_intro"
             case .bossDefeat:      return "combat_boss_defeat"
-            case .combatLoop:      return "combat_loop"
             }
         }
 
         fileprivate var fileExtension: String { "mp3" }
 
         fileprivate var loops: Bool {
-            self == .background || self == .combatLoop
+            self == .background
         }
 
         fileprivate var volume: Float {
             switch self {
             case .background:   return 0.2
-            case .combatLoop:   return 0.25
             case .telegraph:    return 0.5
             case .whiff:        return 0.4
             default:            return 1.0

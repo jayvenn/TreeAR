@@ -29,6 +29,11 @@ final class ARSceneDirector {
 
     private(set) var weaponNode: SCNNode?
     private var isSwinging = false
+    private(set) var isMachineGunMode = false
+
+    // MARK: - Loot
+
+    private var activeLootNodes: [SCNNode] = []
 
     // MARK: - Setup
 
@@ -91,6 +96,18 @@ final class ARSceneDirector {
         weaponNode?.removeFromParentNode()
         weaponNode = nil
         isSwinging = false
+        isMachineGunMode = false
+    }
+
+    /// Resets swing/mode flags and restores the idle sway without removing the weapon.
+    func resetWeaponState() {
+        isSwinging = false
+        isMachineGunMode = false
+        guard let weapon = weaponNode else { return }
+        weapon.removeAllActions()
+        weapon.position = PlayerWeapon.restPosition
+        weapon.eulerAngles = PlayerWeapon.restEuler
+        weapon.runAction(PlayerWeapon.idleSwayAnimation(), forKey: PlayerWeapon.idleSwayKey)
     }
 
     /// Triggers a weapon swing. Returns `false` if already mid-swing.
@@ -289,10 +306,122 @@ final class ARSceneDirector {
         bossNode = nil
     }
 
+    // MARK: - Loot
+
+    /// Spawns a loot node at a random position 2-3m from the boss on the ground plane.
+    func spawnLoot(type: LootType) {
+        assertMainThread()
+        guard let tracker = trackerNode, let boss = bossNode else { return }
+
+        let angle = Float.random(in: 0 ... .pi * 2)
+        let dist  = Float.random(in: 1.8 ... 3.0)
+        let bossPos = boss.position
+        let x = bossPos.x + cos(angle) * dist
+        let z = bossPos.z + sin(angle) * dist
+
+        let node = LootNodeBuilder.build(type: type)
+        node.position = SCNVector3(x, 0.0, z)
+        node.opacity = 0
+        tracker.addChildNode(node)
+        activeLootNodes.append(node)
+
+        let appear = SCNAction.sequence([
+            .scale(to: 0.3, duration: 0),
+            .group([.fadeIn(duration: 0.4), .scale(to: 1.0, duration: 0.4)])
+        ])
+        node.runAction(appear)
+
+        let despawn = SCNAction.sequence([
+            .wait(duration: type.despawnTime),
+            .group([.fadeOut(duration: 0.5), .scale(to: 0.3, duration: 0.5)]),
+            .removeFromParentNode()
+        ])
+        node.runAction(despawn, forKey: "despawn")
+    }
+
+    /// Returns the loot type if a node name matches a loot drop, else nil.
+    func lootType(forNodeName name: String) -> LootType? {
+        LootType.allCases.first { $0.nodeName == name }
+    }
+
+    /// Distance from camera to a loot node by name. Returns nil if not found.
+    func distanceToLoot(named name: String, cameraTransform: simd_float4x4) -> Float? {
+        guard let node = activeLootNodes.first(where: { $0.name == name }) else { return nil }
+        let pos = node.worldPosition
+        let dx = cameraTransform.columns.3.x - pos.x
+        let dz = cameraTransform.columns.3.z - pos.z
+        return sqrt(dx * dx + dz * dz)
+    }
+
+    /// Plays pickup effect and removes the loot node.
+    func pickupLoot(named name: String) {
+        guard let idx = activeLootNodes.firstIndex(where: { $0.name == name }) else { return }
+        let node = activeLootNodes.remove(at: idx)
+        node.removeAction(forKey: "despawn")
+        let pickup = SCNAction.group([
+            .scale(to: 1.5, duration: 0.15),
+            .fadeOut(duration: 0.15)
+        ])
+        node.runAction(.sequence([pickup, .removeFromParentNode()]))
+    }
+
+    func removeAllLoot() {
+        for node in activeLootNodes {
+            node.removeFromParentNode()
+        }
+        activeLootNodes.removeAll()
+    }
+
+    // MARK: - Machine Gun Weapon Mode
+
+    func activateMachineGunMode() {
+        guard let weapon = weaponNode else { return }
+        isMachineGunMode = true
+        PlayerWeapon.activateMachineGunVisual(on: weapon)
+    }
+
+    func deactivateMachineGunMode() {
+        guard let weapon = weaponNode else { return }
+        isMachineGunMode = false
+        PlayerWeapon.deactivateMachineGunVisual(on: weapon)
+    }
+
+    /// Rapid jab for machine gun mode. Returns false if mid-swing.
+    func rapidJabWeapon(onApex: @escaping () -> Void, onComplete: @escaping () -> Void) -> Bool {
+        assertMainThread()
+        guard let weapon = weaponNode, !isSwinging else { return false }
+        isSwinging = true
+
+        weapon.removeAction(forKey: PlayerWeapon.idleSwayKey)
+        PlayerWeapon.spawnRapidTrail(on: weapon)
+
+        let jab = PlayerWeapon.rapidJabAnimation(onApex: {
+            DispatchQueue.main.async { onApex() }
+        })
+
+        weapon.runAction(jab, completionHandler: mainThreadCompletion { [weak self] in
+            guard let self else { return }
+            self.isSwinging = false
+            onComplete()
+        })
+        return true
+    }
+
     // MARK: - Hit Testing
 
     func hitNodeName(at location: CGPoint, in sceneView: ARSCNView) -> String? {
         sceneView.hitTest(location).first?.node.name
+    }
+
+    /// Walks up the node hierarchy to find a named ancestor (for loot child hit).
+    func rootLootName(at location: CGPoint, in sceneView: ARSCNView) -> String? {
+        guard let hit = sceneView.hitTest(location).first else { return nil }
+        var node: SCNNode? = hit.node
+        while let n = node {
+            if let type = lootType(forNodeName: n.name ?? "") { return type.nodeName }
+            node = n.parent
+        }
+        return nil
     }
 
     // MARK: - Private — Particles & Effects

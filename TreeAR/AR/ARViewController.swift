@@ -153,13 +153,14 @@ final class ARViewController: UIViewController {
     // MARK: - Tap Handling
 
     @objc private func handleTap(_ r: UITapGestureRecognizer) {
+        let loc = r.location(in: sceneView)
+
         if viewModel.state.acceptsCombatTaps {
-            viewModel.handleCombatTap()
+            viewModel.handleCombatTap(at: loc, in: sceneView)
             return
         }
         if viewModel.state == .playerDefeated { return }
 
-        let loc = r.location(in: sceneView)
         guard let name = viewModel.sceneDirector.hitNodeName(at: loc, in: sceneView) else { return }
         viewModel.handleTap(on: name)
     }
@@ -179,6 +180,7 @@ final class ARViewController: UIViewController {
         combatHUD.updatePlayerHP(current: viewModel.playerState.maxHP,
                                  max: viewModel.playerState.maxHP)
         combatHUD.updateRangeIndicator(inRange: false)
+        combatHUD.updateMachineGunTimer(fraction: 0)
         combatHUD.hideRetryPrompt()
     }
 
@@ -213,12 +215,12 @@ extension ARViewController: ARExperienceViewModelDelegate {
         case .bossSpawning:
             hideInstruction()
         case .combatActive:
-            attachWeaponIfNeeded()
+            break
         case .playerDefeated:
             combatHUD.showRetryPrompt()
-            viewModel.sceneDirector.removeWeapon()
-            weaponAttached = false
+            combatHUD.updateMachineGunTimer(fraction: 0)
         case .victory:
+            combatHUD.updateMachineGunTimer(fraction: 0)
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.hideCombatHUD()
             }
@@ -234,6 +236,10 @@ extension ARViewController: ARExperienceViewModelDelegate {
         combatHUD.updateBossHP(fraction: bossHPFraction)
         combatHUD.updatePlayerHP(current: playerHP.currentHP, max: playerHP.maxHP)
         combatHUD.updateRangeIndicator(inRange: playerDistance <= playerHP.attackRange)
+
+        if playerHP.isMachineGunActive {
+            combatHUD.updateMachineGunTimer(fraction: playerHP.machineGunFraction)
+        }
     }
 
     func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
@@ -259,8 +265,23 @@ extension ARViewController: ARExperienceViewModelDelegate {
         }
     }
 
-    func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool) {
-        // Reserved for future swing feedback (camera nudge, etc.)
+    func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool) {}
+
+    func viewModelPlayerDidPickupLoot(_ vm: ARExperienceViewModel, type: LootType) {
+        switch type {
+        case .healthPack:
+            combatHUD.showPickupBanner(text: "+40 HP", color: UIColor(red: 0.1, green: 0.9, blue: 0.3, alpha: 1))
+            combatHUD.flashPickup(color: .systemGreen)
+        case .wizardMachineGun:
+            combatHUD.showPickupBanner(text: "WIZARD GUN ACTIVE", color: UIColor(red: 0.7, green: 0.3, blue: 1.0, alpha: 1))
+            combatHUD.flashPickup(color: UIColor(red: 0.6, green: 0.2, blue: 1.0, alpha: 1))
+            combatHUD.updateMachineGunTimer(fraction: 1.0)
+        }
+    }
+
+    func viewModelMachineGunDidExpire(_ vm: ARExperienceViewModel) {
+        combatHUD.updateMachineGunTimer(fraction: 0)
+        combatHUD.showPickupBanner(text: "WIZARD GUN EXPIRED", color: UIColor.white.withAlphaComponent(0.6))
     }
 }
 
@@ -280,7 +301,9 @@ extension ARViewController: ARSCNViewDelegate {
         guard let frame = sceneView.session.currentFrame else { return }
         let transform = frame.camera.transform
         DispatchQueue.main.async { [weak self] in
-            guard let self, self.viewModel.state == .combatActive else { return }
+            guard let self else { return }
+            self.attachWeaponIfNeeded()
+            guard self.viewModel.state == .combatActive else { return }
             self.viewModel.updateCameraTransform(transform)
             self.viewModel.updateCombat(atTime: time, cameraTransform: transform)
         }
