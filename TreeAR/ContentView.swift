@@ -8,9 +8,17 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var showAR = false
+
     var body: some View {
-        IntroductionViewRepresentable(viewModel: IntroductionViewModel())
-            .ignoresSafeArea()
+        IntroductionViewRepresentable(
+            viewModel: IntroductionViewModel { showAR = true }
+        )
+        .ignoresSafeArea()
+        .fullScreenCover(isPresented: $showAR) {
+            ARViewRepresentable()
+                .ignoresSafeArea()
+        }
     }
 }
 
@@ -24,6 +32,13 @@ struct IntroductionViewRepresentable: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: IntroductionViewController, context: Context) {}
+}
+
+struct ARViewRepresentable: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> ARViewController {
+        ARViewController()
+    }
+    func updateUIViewController(_ uiViewController: ARViewController, context: Context) {}
 }
 
 #Preview {

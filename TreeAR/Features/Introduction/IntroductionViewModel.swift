@@ -8,7 +8,13 @@
 import Foundation
 
 final class IntroductionViewModel {
+    private let onBegin: () -> Void
+
+    init(onBegin: @escaping () -> Void = {}) {
+        self.onBegin = onBegin
+    }
+
     func beginTapped() {
-        // AR adventure — coming soon
+        onBegin()
     }
 }
