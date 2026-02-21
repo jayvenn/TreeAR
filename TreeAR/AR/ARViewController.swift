@@ -523,16 +523,18 @@ extension ARViewController {
 }
 
 // MARK: - ARViewController SceneKit / AR Delegate
+// Note: renderer(_:didRenderScene:atTime:) is called on SceneKit's render thread.
+// All UI and view access must happen on the main thread.
 extension ARViewController {
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
-        guard !viewModel.gameStarted,
-              let hitTestResult = sceneView.hitTest(
-                CGPoint(x: view.frame.midX, y: view.frame.midY),
-                types: [.existingPlaneUsingExtent, .estimatedHorizontalPlane]
-              ).first
-        else { return }
-        
         DispatchQueue.main.async {
+            guard !self.viewModel.gameStarted,
+                  let hitTestResult = self.sceneView.hitTest(
+                    CGPoint(x: self.view.frame.midX, y: self.view.frame.midY),
+                    types: [.existingPlaneUsingExtent, .estimatedHorizontalPlane]
+                  ).first
+            else { return }
+            
             let translation = hitTestResult.worldTransform.translation
             let position = self.vector(from: translation)
             self.hole3Node.position = self.computeHolePosition(vector3: position)
