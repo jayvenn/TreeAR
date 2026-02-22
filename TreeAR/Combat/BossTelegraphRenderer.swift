@@ -27,41 +27,26 @@ final class BossTelegraphRenderer {
 
     func showTelegraph(for attack: BossAttack, duration: TimeInterval) {
         guard let parent = parentNode else { return }
-        let node: SCNNode
-
-        switch attack {
-        case .groundSlam:
-            node = makeRuneCircle(radius: attack.threatRadius, color: Self.dangerColor)
-        case .sweep:
-            node = makeArcTelegraph(radius: attack.threatRadius, color: Self.warnColor)
-        case .stompWave:
-            node = makeExpandingRings(radius: attack.threatRadius, color: Self.dangerColor)
-        case .enragedCombo:
-            node = makeRuneCircle(radius: attack.threatRadius, color: Self.dangerColor)
-            let arc = makeArcTelegraph(radius: attack.threatRadius, color: Self.warnColor)
-            node.addChildNode(arc)
-        }
+        let color = attack == .sweep ? Self.warnColor : Self.dangerColor
+        let node = makeDangerZone(radius: attack.threatRadius, color: color)
 
         node.opacity = 0
         node.position = SCNVector3(0, 0.005, 0)
-        node.scale = SCNVector3(0.05, 0.05, 0.05)
+        node.scale = SCNVector3(0.1, 0.1, 0.1)
         parent.addChildNode(node)
         activeTelegraphs.append(node)
 
-        let expand = SCNAction.scale(to: 1.0, duration: duration * 0.75)
+        let expand = SCNAction.scale(to: 1.0, duration: duration * 0.8)
         expand.timingMode = .easeOut
-        let fadeIn = SCNAction.fadeOpacity(to: 0.7, duration: duration * 0.25)
+        let fadeIn = SCNAction.fadeOpacity(to: 0.6, duration: duration * 0.3)
 
         let pulse = SCNAction.repeatForever(.sequence([
-            .fadeOpacity(to: 0.9, duration: 0.2),
-            .fadeOpacity(to: 0.5, duration: 0.2)
+            .fadeOpacity(to: 0.7, duration: 0.25),
+            .fadeOpacity(to: 0.4, duration: 0.25)
         ]))
-
-        let spin = SCNAction.repeatForever(.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 4.0))
 
         node.runAction(.group([expand, fadeIn]))
         node.runAction(pulse, forKey: "pulse")
-        node.runAction(spin, forKey: "spin")
     }
 
     func flashAndRemoveTelegraphs() {
@@ -88,72 +73,19 @@ final class BossTelegraphRenderer {
 
     // MARK: - Factory
 
-    private func makeRuneCircle(radius: Float, color: UIColor) -> SCNNode {
+    private func makeDangerZone(radius: Float, color: UIColor) -> SCNNode {
         let container = SCNNode()
-        container.name = "telegraph_rune"
+        container.name = "telegraph"
 
-        let outerRing = SCNTorus(ringRadius: CGFloat(radius), pipeRadius: 0.025)
-        outerRing.firstMaterial = makeGlowMaterial(color)
-        container.addChildNode(SCNNode(geometry: outerRing))
-
-        let innerRing = SCNTorus(ringRadius: CGFloat(radius) * 0.7, pipeRadius: 0.015)
-        innerRing.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.6))
-        container.addChildNode(SCNNode(geometry: innerRing))
+        let ring = SCNTorus(ringRadius: CGFloat(radius), pipeRadius: 0.02)
+        ring.firstMaterial = makeGlowMaterial(color)
+        container.addChildNode(SCNNode(geometry: ring))
 
         let fill = SCNCylinder(radius: CGFloat(radius), height: 0.002)
-        fill.radialSegmentCount = 48
-        fill.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.12))
+        fill.radialSegmentCount = 36
+        fill.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.08))
         container.addChildNode(SCNNode(geometry: fill))
 
-        let runeCount = 8
-        for i in 0..<runeCount {
-            let angle = Float(i) / Float(runeCount) * .pi * 2
-            let r = radius * 0.85
-            let mark = SCNNode(geometry: SCNBox(width: 0.04, height: 0.002, length: 0.12, chamferRadius: 0.005))
-            mark.geometry?.firstMaterial = makeGlowMaterial(color)
-            mark.position = SCNVector3(cos(angle) * r, 0, sin(angle) * r)
-            mark.eulerAngles.y = -angle + .pi / 2
-            container.addChildNode(mark)
-        }
-
-        for i in 0..<4 {
-            let angle = Float(i) / 4.0 * .pi * 2
-            let line = SCNNode(geometry: SCNBox(width: 0.015, height: 0.002, length: CGFloat(radius) * 2, chamferRadius: 0))
-            line.geometry?.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.25))
-            line.eulerAngles.y = angle
-            container.addChildNode(line)
-        }
-
-        return container
-    }
-
-    private func makeArcTelegraph(radius: Float, color: UIColor) -> SCNNode {
-        let path = UIBezierPath()
-        let r = CGFloat(radius)
-        path.move(to: .zero)
-        path.addArc(withCenter: .zero, radius: r,
-                     startAngle: -.pi / 2, endAngle: .pi / 2, clockwise: true)
-        path.close()
-
-        let shape = SCNShape(path: path, extrusionDepth: 0.003)
-        shape.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.2))
-
-        let node = SCNNode(geometry: shape)
-        node.name = "telegraph_arc"
-        node.eulerAngles.x = -.pi / 2
-        return node
-    }
-
-    private func makeExpandingRings(radius: Float, color: UIColor) -> SCNNode {
-        let container = SCNNode()
-        container.name = "telegraph_rings"
-
-        for i in 0..<4 {
-            let r = CGFloat(radius) * CGFloat(i + 1) / 4.0
-            let torus = SCNTorus(ringRadius: r, pipeRadius: 0.018)
-            torus.firstMaterial = makeGlowMaterial(color.withAlphaComponent(0.5))
-            container.addChildNode(SCNNode(geometry: torus))
-        }
         return container
     }
 
