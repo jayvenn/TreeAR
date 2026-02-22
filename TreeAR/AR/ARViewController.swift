@@ -24,6 +24,7 @@ final class ARViewController: UIViewController {
     private let sceneView = ARSCNView(frame: .zero)
     private var weaponAttached = false
     private var playedVOKeys = Set<AudioService.Voiceover>()
+    private var pendingDelayWork: [DispatchWorkItem] = []
 
     // MARK: - UI
 
@@ -89,7 +90,10 @@ final class ARViewController: UIViewController {
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        sceneView.delegate = nil
         sceneView.session.pause()
+        pendingDelayWork.forEach { $0.cancel() }
+        pendingDelayWork.removeAll()
         viewModel.suspend()
     }
 
@@ -200,6 +204,17 @@ final class ARViewController: UIViewController {
         playedVOKeys.insert(vo)
         viewModel.audioService.playVO(vo)
     }
+
+    /// Schedules a delayed block that is automatically cancelled on dismiss.
+    private func scheduleDelay(_ delay: TimeInterval, block: @escaping () -> Void) {
+        let item = DispatchWorkItem { [weak self] in
+            guard self != nil else { return }
+            block()
+        }
+        pendingDelayWork.removeAll { $0.isCancelled }
+        pendingDelayWork.append(item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    }
 }
 
 // MARK: - ARExperienceViewModelDelegate
@@ -231,7 +246,7 @@ extension ARViewController: ARExperienceViewModelDelegate {
         case .combatActive:
             combatHUD.resetTips()
             playedVOKeys.removeAll()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            scheduleDelay(2.0) { [weak self] in
                 self?.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack")
                 self?.playVOOnce(.tapAttack)
             }
@@ -286,12 +301,12 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
         combatHUD.showPhaseTransition(phase)
         if phase == .phase2 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            scheduleDelay(3.0) { [weak self] in
                 self?.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2")
                 self?.playVOOnce(.phase2)
             }
         } else if phase == .phase3 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            scheduleDelay(3.0) { [weak self] in
                 self?.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3")
                 self?.playVOOnce(.phase3)
             }

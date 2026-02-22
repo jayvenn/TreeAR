@@ -92,12 +92,13 @@ final class AudioService {
     // MARK: - Properties
 
     private var players: [Track: AVAudioPlayer] = [:]
-    private var voiceoverPlayer: AVAudioPlayer?
+    private var voPlayers: [Voiceover: AVAudioPlayer] = [:]
+    private var activeVO: Voiceover?
 
     // MARK: - Init
 
     init() {
-        preloadAllTracks()
+        preloadAll()
     }
 
     // MARK: - Public API
@@ -112,20 +113,21 @@ final class AudioService {
         players[track]?.stop()
     }
 
-    /// Plays a voiceover clip on a dedicated channel, stopping any currently playing VO.
+    /// Plays a preloaded voiceover clip, stopping any currently playing VO.
     /// Missing files are silently ignored.
     func playVO(_ vo: Voiceover) {
-        voiceoverPlayer?.stop()
-        guard let url = Bundle.main.url(forResource: vo.resource, withExtension: "mp3"),
-              let player = try? AVAudioPlayer(contentsOf: url) else { return }
-        player.volume = 0.85
+        if let active = activeVO { voPlayers[active]?.stop() }
+        guard let player = voPlayers[vo] else { return }
+        player.currentTime = 0
         player.play()
-        voiceoverPlayer = player
+        activeVO = vo
     }
 
     func stopVO() {
-        voiceoverPlayer?.stop()
-        voiceoverPlayer = nil
+        if let active = activeVO {
+            voPlayers[active]?.stop()
+            activeVO = nil
+        }
     }
 
     func stopAll() {
@@ -135,7 +137,7 @@ final class AudioService {
 
     // MARK: - Private
 
-    private func preloadAllTracks() {
+    private func preloadAll() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             for track in Track.allCases {
@@ -146,6 +148,14 @@ final class AudioService {
                 player.volume = track.volume
                 player.prepareToPlay()
                 DispatchQueue.main.async { self.players[track] = player }
+            }
+            for vo in Voiceover.allCases {
+                guard let url = Bundle.main.url(forResource: vo.resource,
+                                                withExtension: "mp3"),
+                      let player = try? AVAudioPlayer(contentsOf: url) else { continue }
+                player.volume = 0.85
+                player.prepareToPlay()
+                DispatchQueue.main.async { self.voPlayers[vo] = player }
             }
         }
     }

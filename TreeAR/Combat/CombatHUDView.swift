@@ -214,6 +214,7 @@ final class CombatHUDView: UIView {
     }
 
     func showVictoryPrompt() {
+        guard victoryContainer.isHidden else { return }
         victoryContainer.alpha = 0
         victoryContainer.isHidden = false
         victoryContainer.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
@@ -227,6 +228,7 @@ final class CombatHUDView: UIView {
     func hideVictoryPrompt() {
         victoryContainer.isHidden = true
         victoryContainer.alpha = 0
+        victoryContainer.transform = .identity
     }
 
     func triggerScreenShake() {
@@ -287,8 +289,10 @@ final class CombatHUDView: UIView {
         shownTipKeys.removeAll()
         tipQueue.removeAll()
         tipDismissWork?.cancel()
+        tipDismissWork = nil
         isTipVisible = false
         tipBackdrop.alpha = 0
+        tipBackdrop.transform = .identity
     }
 
     private func presentTip(text: String, duration: TimeInterval) {
