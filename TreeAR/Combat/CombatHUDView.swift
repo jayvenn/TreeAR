@@ -347,7 +347,7 @@ final class CombatHUDView: UIView {
         }
 
         NSLayoutConstraint.activate([
-            playerHPStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            playerHPStack.centerXAnchor.constraint(equalTo: centerXAnchor),
             playerHPStack.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
         ])
     }

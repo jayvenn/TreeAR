@@ -7,10 +7,11 @@
 
 import SceneKit
 
-/// Procedural SceneKit model for "The Hollow" — a towering armored stone demon.
+/// Procedural SceneKit model for "The Hollow" — a stocky armored stone golem
+/// with big expressive eyes and oversized fists.
 ///
-/// Built entirely from SceneKit primitives with layered geometry and emission
-/// materials for glowing runes, eyes, and chest core.
+/// Design: chibi-influenced proportions (big head, round body, stubby limbs)
+/// contrasted with menacing details (glowing runes, fangs, brow ridge).
 enum HollowBoss {
 
     static let nodeName = "hollow_boss"
@@ -19,11 +20,12 @@ enum HollowBoss {
 
     // MARK: - Colors
 
-    private static let obsidian     = UIColor(red: 0.10, green: 0.08, blue: 0.12, alpha: 1)
-    private static let darkStone    = UIColor(red: 0.15, green: 0.13, blue: 0.16, alpha: 1)
-    private static let runeColor    = UIColor(red: 1.0,  green: 0.25, blue: 0.08, alpha: 1)
-    private static let coreColor    = UIColor(red: 1.0,  green: 0.35, blue: 0.05, alpha: 1)
-    private static let eyeColor     = UIColor(red: 1.0,  green: 0.15, blue: 0.0,  alpha: 1)
+    private static let obsidian     = UIColor(red: 0.12, green: 0.10, blue: 0.14, alpha: 1)
+    private static let darkStone    = UIColor(red: 0.18, green: 0.15, blue: 0.20, alpha: 1)
+    private static let runeColor    = UIColor(red: 1.0,  green: 0.35, blue: 0.10, alpha: 1)
+    private static let coreColor    = UIColor(red: 1.0,  green: 0.45, blue: 0.10, alpha: 1)
+    private static let eyeColor     = UIColor(red: 1.0,  green: 0.55, blue: 0.0,  alpha: 1)
+    private static let fangColor    = UIColor(red: 0.85, green: 0.82, blue: 0.78, alpha: 1)
 
     // MARK: - Model Construction
 
@@ -31,132 +33,147 @@ enum HollowBoss {
         let root = SCNNode()
         root.name = nodeName
 
-        buildTorso(on: root)
+        buildBody(on: root)
         buildHead(on: root)
         buildArms(on: root)
         buildLegs(on: root)
         buildCore(on: root)
-        buildShoulderArmor(on: root)
 
         return root
     }
 
     // MARK: - Body Parts
 
-    private static func buildTorso(on root: SCNNode) {
-        let torso = SCNNode(geometry: SCNBox(width: 0.8, height: 1.0, length: 0.55, chamferRadius: 0.05))
+    private static func buildBody(on root: SCNNode) {
+        let torso = SCNNode(geometry: SCNSphere(radius: 0.42))
+        torso.scale = SCNVector3(1.0, 1.15, 0.85)
         torso.geometry?.firstMaterial = makeArmorMaterial()
-        torso.position = SCNVector3(0, 1.1, 0)
+        torso.position = SCNVector3(0, 0.9, 0)
         torso.name = "torso"
         root.addChildNode(torso)
 
-        let waist = SCNNode(geometry: SCNBox(width: 0.6, height: 0.25, length: 0.45, chamferRadius: 0.04))
-        waist.geometry?.firstMaterial = makeStoneMaterial()
-        waist.position = SCNVector3(0, 0.55, 0)
-        root.addChildNode(waist)
+        let belly = SCNNode(geometry: SCNSphere(radius: 0.32))
+        belly.scale = SCNVector3(1.0, 0.8, 0.9)
+        belly.geometry?.firstMaterial = makeStoneMaterial()
+        belly.position = SCNVector3(0, 0.55, 0.04)
+        root.addChildNode(belly)
 
-        for xOff: Float in [-0.25, 0.0, 0.25] {
-            let rune = SCNNode(geometry: SCNBox(width: 0.06, height: 0.18, length: 0.01, chamferRadius: 0.01))
+        for xOff: Float in [-0.14, 0.14] {
+            let rune = SCNNode(geometry: SCNBox(width: 0.04, height: 0.12, length: 0.01, chamferRadius: 0.005))
             rune.geometry?.firstMaterial = makeRuneMaterial()
-            rune.position = SCNVector3(xOff, 1.15, 0.28)
+            rune.position = SCNVector3(xOff, 0.9, 0.38)
             rune.name = "rune"
             root.addChildNode(rune)
         }
     }
 
     private static func buildHead(on root: SCNNode) {
-        let skull = SCNNode(geometry: SCNBox(width: 0.3, height: 0.32, length: 0.28, chamferRadius: 0.06))
+        let skull = SCNNode(geometry: SCNSphere(radius: 0.30))
+        skull.scale = SCNVector3(1.05, 0.95, 1.0)
         skull.geometry?.firstMaterial = makeArmorMaterial()
-        skull.position = SCNVector3(0, 1.82, 0)
+        skull.position = SCNVector3(0, 1.6, 0.04)
         skull.name = "head"
         root.addChildNode(skull)
 
-        let helmet = SCNNode(geometry: SCNBox(width: 0.34, height: 0.12, length: 0.32, chamferRadius: 0.03))
-        helmet.geometry?.firstMaterial = makeArmorMaterial()
-        helmet.position = SCNVector3(0, 1.95, 0)
-        root.addChildNode(helmet)
+        for xOff: Float in [-0.10, 0.10] {
+            let socket = SCNNode(geometry: SCNSphere(radius: 0.07))
+            socket.geometry?.firstMaterial = makeStoneMaterial()
+            socket.position = SCNVector3(xOff, 1.6, 0.26)
+            root.addChildNode(socket)
 
-        for xOff: Float in [-0.07, 0.07] {
-            let eye = SCNNode(geometry: SCNSphere(radius: 0.035))
+            let eye = SCNNode(geometry: SCNSphere(radius: 0.055))
             eye.geometry?.firstMaterial = makeEyeMaterial()
-            eye.position = SCNVector3(xOff, 1.85, 0.15)
+            eye.position = SCNVector3(xOff, 1.6, 0.28)
             eye.name = "eye"
             root.addChildNode(eye)
+
+            let pupil = SCNNode(geometry: SCNSphere(radius: 0.022))
+            pupil.geometry?.firstMaterial = makePupilMaterial()
+            pupil.position = SCNVector3(xOff, 1.6, 0.32)
+            root.addChildNode(pupil)
 
             let glow = SCNLight()
             glow.type = .omni
             glow.color = eyeColor
             glow.intensity = 80
             glow.attenuationStartDistance = 0
-            glow.attenuationEndDistance = 0.3
+            glow.attenuationEndDistance = 0.4
             eye.light = glow
         }
 
-        let jaw = SCNNode(geometry: SCNBox(width: 0.22, height: 0.08, length: 0.18, chamferRadius: 0.02))
-        jaw.geometry?.firstMaterial = makeStoneMaterial()
-        jaw.position = SCNVector3(0, 1.7, 0.04)
-        root.addChildNode(jaw)
+        let brow = SCNNode(geometry: SCNBox(width: 0.28, height: 0.055, length: 0.10, chamferRadius: 0.02))
+        brow.geometry?.firstMaterial = makeArmorMaterial()
+        brow.position = SCNVector3(0, 1.70, 0.20)
+        brow.eulerAngles.x = 0.15
+        root.addChildNode(brow)
+
+        for xOff: Float in [-0.055, 0.055] {
+            let fang = SCNNode(geometry: SCNCone(topRadius: 0.005, bottomRadius: 0.018, height: 0.055))
+            fang.geometry?.firstMaterial = makeFangMaterial()
+            fang.position = SCNVector3(xOff, 1.45, 0.22)
+            root.addChildNode(fang)
+        }
 
         for side: Float in [-1, 1] {
-            let horn = SCNNode(geometry: SCNCone(topRadius: 0, bottomRadius: 0.04, height: 0.2))
-            horn.geometry?.firstMaterial = makeArmorMaterial()
-            horn.position = SCNVector3(side * 0.16, 2.0, -0.05)
-            horn.eulerAngles = SCNVector3(0.3, 0, side * -0.4)
+            let horn = SCNNode(geometry: SCNCapsule(capRadius: 0.03, height: 0.12))
+            horn.geometry?.firstMaterial = makeStoneMaterial()
+            horn.position = SCNVector3(side * 0.22, 1.78, -0.04)
+            horn.eulerAngles = SCNVector3(0.2, 0, side * -0.5)
             root.addChildNode(horn)
+        }
+
+        for side: Float in [-1, 1] {
+            let ear = SCNNode(geometry: SCNSphere(radius: 0.055))
+            ear.scale = SCNVector3(0.5, 1.0, 0.8)
+            ear.geometry?.firstMaterial = makeStoneMaterial()
+            ear.position = SCNVector3(side * 0.30, 1.62, -0.02)
+            root.addChildNode(ear)
         }
     }
 
     private static func buildArms(on root: SCNNode) {
         for side: Float in [-1, 1] {
-            let shoulder = SCNNode(geometry: SCNSphere(radius: 0.12))
+            let shoulder = SCNNode(geometry: SCNSphere(radius: 0.10))
             shoulder.geometry?.firstMaterial = makeArmorMaterial()
-            shoulder.position = SCNVector3(side * 0.52, 1.45, 0)
+            shoulder.position = SCNVector3(side * 0.48, 1.1, 0)
             root.addChildNode(shoulder)
 
-            let upperArm = SCNNode(geometry: SCNCapsule(capRadius: 0.09, height: 0.5))
-            upperArm.geometry?.firstMaterial = makeStoneMaterial()
-            upperArm.position = SCNVector3(0, -0.2, 0)
-            shoulder.addChildNode(upperArm)
+            let arm = SCNNode(geometry: SCNCapsule(capRadius: 0.075, height: 0.32))
+            arm.geometry?.firstMaterial = makeStoneMaterial()
+            arm.position = SCNVector3(0, -0.15, 0)
+            shoulder.addChildNode(arm)
 
-            let forearm = SCNNode(geometry: SCNCapsule(capRadius: 0.08, height: 0.45))
-            forearm.geometry?.firstMaterial = makeArmorMaterial()
-            forearm.position = SCNVector3(0, -0.45, 0)
-            shoulder.addChildNode(forearm)
-
-            let fist = SCNNode(geometry: SCNSphere(radius: 0.1))
-            fist.geometry?.firstMaterial = makeStoneMaterial()
-            fist.position = SCNVector3(0, -0.7, 0)
+            let fist = SCNNode(geometry: SCNSphere(radius: 0.12))
+            fist.geometry?.firstMaterial = makeArmorMaterial()
+            fist.position = SCNVector3(0, -0.38, 0)
             shoulder.addChildNode(fist)
 
-            let runeStrip = SCNNode(geometry: SCNBox(width: 0.03, height: 0.3, length: 0.01, chamferRadius: 0.005))
+            let runeStrip = SCNNode(geometry: SCNBox(width: 0.025, height: 0.08, length: 0.01, chamferRadius: 0.003))
             runeStrip.geometry?.firstMaterial = makeRuneMaterial()
-            runeStrip.position = SCNVector3(side * 0.08, -0.3, 0.08)
+            runeStrip.position = SCNVector3(side * 0.05, -0.32, 0.09)
+            runeStrip.name = "rune"
             shoulder.addChildNode(runeStrip)
 
             shoulder.name = side < 0 ? "arm_left" : "arm_right"
-            shoulder.eulerAngles.z = side * 0.12
+            shoulder.eulerAngles.z = side * 0.15
         }
     }
 
     private static func buildLegs(on root: SCNNode) {
         for side: Float in [-1, 1] {
             let hip = SCNNode()
-            hip.position = SCNVector3(side * 0.2, 0.4, 0)
+            hip.position = SCNVector3(side * 0.16, 0.32, 0)
             hip.name = side < 0 ? "leg_left" : "leg_right"
 
-            let thigh = SCNNode(geometry: SCNCapsule(capRadius: 0.11, height: 0.45))
-            thigh.geometry?.firstMaterial = makeStoneMaterial()
-            thigh.position = SCNVector3(0, -0.05, 0)
-            hip.addChildNode(thigh)
+            let leg = SCNNode(geometry: SCNCapsule(capRadius: 0.09, height: 0.28))
+            leg.geometry?.firstMaterial = makeStoneMaterial()
+            leg.position = SCNVector3(0, -0.04, 0)
+            hip.addChildNode(leg)
 
-            let shin = SCNNode(geometry: SCNCapsule(capRadius: 0.1, height: 0.4))
-            shin.geometry?.firstMaterial = makeArmorMaterial()
-            shin.position = SCNVector3(0, -0.35, 0)
-            hip.addChildNode(shin)
-
-            let foot = SCNNode(geometry: SCNBox(width: 0.16, height: 0.06, length: 0.22, chamferRadius: 0.02))
+            let foot = SCNNode(geometry: SCNSphere(radius: 0.09))
+            foot.scale = SCNVector3(1.0, 0.45, 1.3)
             foot.geometry?.firstMaterial = makeArmorMaterial()
-            foot.position = SCNVector3(0, -0.58, 0.04)
+            foot.position = SCNVector3(0, -0.24, 0.03)
             hip.addChildNode(foot)
 
             root.addChildNode(hip)
@@ -164,9 +181,9 @@ enum HollowBoss {
     }
 
     private static func buildCore(on root: SCNNode) {
-        let core = SCNNode(geometry: SCNSphere(radius: 0.1))
+        let core = SCNNode(geometry: SCNSphere(radius: 0.07))
         core.geometry?.firstMaterial = makeCoreMaterial()
-        core.position = SCNVector3(0, 1.15, 0.29)
+        core.position = SCNVector3(0, 0.95, 0.40)
         core.name = "core"
         root.addChildNode(core)
 
@@ -183,22 +200,6 @@ enum HollowBoss {
             node.geometry?.firstMaterial?.emission.intensity = CGFloat(1.5 + sin(Float(t) * .pi) * 0.5)
         })
         core.runAction(pulse)
-    }
-
-    private static func buildShoulderArmor(on root: SCNNode) {
-        for side: Float in [-1, 1] {
-            let plate = SCNNode(geometry: SCNBox(width: 0.22, height: 0.15, length: 0.2, chamferRadius: 0.03))
-            plate.geometry?.firstMaterial = makeArmorMaterial()
-            plate.position = SCNVector3(side * 0.52, 1.55, 0)
-            plate.eulerAngles.z = side * -0.3
-            root.addChildNode(plate)
-
-            let spike = SCNNode(geometry: SCNCone(topRadius: 0, bottomRadius: 0.035, height: 0.18))
-            spike.geometry?.firstMaterial = makeArmorMaterial()
-            spike.position = SCNVector3(side * 0.58, 1.62, 0)
-            spike.eulerAngles.z = side * -0.8
-            root.addChildNode(spike)
-        }
     }
 
     // MARK: - Materials
@@ -236,6 +237,23 @@ enum HollowBoss {
         mat.emission.contents = eyeColor
         mat.emission.intensity = 1.5
         mat.lightingModel = .constant
+        return mat
+    }
+
+    private static func makePupilMaterial() -> SCNMaterial {
+        let mat = SCNMaterial()
+        mat.diffuse.contents = UIColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 1)
+        mat.emission.contents = UIColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 1)
+        mat.emission.intensity = 2.0
+        mat.lightingModel = .constant
+        return mat
+    }
+
+    private static func makeFangMaterial() -> SCNMaterial {
+        let mat = SCNMaterial()
+        mat.diffuse.contents = fangColor
+        mat.roughness.contents = 0.4
+        mat.metalness.contents = 0.1
         return mat
     }
 

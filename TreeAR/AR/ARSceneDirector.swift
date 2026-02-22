@@ -303,11 +303,12 @@ final class ARSceneDirector {
         if phase == .phase3 {
             let light = SCNLight()
             light.type = .omni
-            light.color = UIColor(red: 1, green: 0.15, blue: 0, alpha: 1)
-            light.intensity = 600
+            light.color = UIColor(red: 1, green: 0.3, blue: 0, alpha: 1)
+            light.intensity = 200
+            light.attenuationEndDistance = 1.5
             let n = SCNNode()
             n.light = light
-            n.position = SCNVector3(0, 1.5, 0)
+            n.position = SCNVector3(0, 1.2, 0)
             boss.addChildNode(n)
         }
     }
