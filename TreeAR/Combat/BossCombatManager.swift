@@ -152,7 +152,7 @@ final class BossCombatManager {
     }
 
     func beginFight() {
-        enterIdleWithDelay()
+        enterState(.approaching)
     }
 
     // MARK: - Private

@@ -52,7 +52,6 @@ final class BossTelegraphRenderer {
     func flashAndRemoveTelegraphs() {
         for node in activeTelegraphs {
             node.removeAction(forKey: "pulse")
-            node.removeAction(forKey: "spin")
             let flash = SCNAction.sequence([
                 .fadeOpacity(to: 1.0, duration: 0.06),
                 .group([

@@ -9,8 +9,8 @@ import SceneKit
 
 /// Procedural SceneKit model for "The Hollow" — a towering armored stone demon.
 ///
-/// Built entirely from SceneKit primitives with layered geometry, emission materials
-/// for glowing runes, and particle systems for ambient dark energy.
+/// Built entirely from SceneKit primitives with layered geometry and emission
+/// materials for glowing runes, eyes, and chest core.
 enum HollowBoss {
 
     static let nodeName = "hollow_boss"
@@ -225,7 +225,7 @@ enum HollowBoss {
         let mat = SCNMaterial()
         mat.diffuse.contents = runeColor
         mat.emission.contents = runeColor
-        mat.emission.intensity = 1.5
+        mat.emission.intensity = 0.8
         mat.lightingModel = .constant
         return mat
     }
@@ -234,7 +234,7 @@ enum HollowBoss {
         let mat = SCNMaterial()
         mat.diffuse.contents = eyeColor
         mat.emission.contents = eyeColor
-        mat.emission.intensity = 2.5
+        mat.emission.intensity = 1.5
         mat.lightingModel = .constant
         return mat
     }
@@ -243,7 +243,7 @@ enum HollowBoss {
         let mat = SCNMaterial()
         mat.diffuse.contents = coreColor
         mat.emission.contents = coreColor
-        mat.emission.intensity = 2.0
+        mat.emission.intensity = 1.2
         mat.lightingModel = .constant
         mat.transparency = 0.85
         return mat
@@ -332,13 +332,13 @@ enum HollowBoss {
     // MARK: - Phase Transitions
 
     static func enrageAnimation() -> SCNAction {
-        .customAction(duration: 1.5) { node, elapsed in
-            let t = elapsed / 1.5
+        .customAction(duration: 1.0) { node, elapsed in
+            let t = elapsed / 1.0
             if node.name == "eye" {
-                node.geometry?.firstMaterial?.emission.intensity = CGFloat(2.5 + t * 3.0)
+                node.geometry?.firstMaterial?.emission.intensity = CGFloat(1.5 + t * 1.5)
             }
             if node.name == "rune" {
-                node.geometry?.firstMaterial?.emission.intensity = CGFloat(1.5 + t * 2.0)
+                node.geometry?.firstMaterial?.emission.intensity = CGFloat(0.8 + t * 1.2)
             }
         }
     }

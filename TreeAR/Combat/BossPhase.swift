@@ -28,9 +28,9 @@ enum BossPhase: Int, Comparable {
     /// Walk speed (meters/second) when chasing the player.
     var moveSpeed: Float {
         switch self {
-        case .phase1: return 0.7
-        case .phase2: return 1.0
-        case .phase3: return 1.4
+        case .phase1: return 1.0
+        case .phase2: return 1.4
+        case .phase3: return 1.8
         }
     }
 
