@@ -534,51 +534,69 @@ final class ARSceneDirector {
 
         let spirit = SCNNode()
         spirit.name = "spirit"
+        spirit.renderingOrder = 200
 
-        let core = SCNNode(geometry: SCNSphere(radius: 0.25))
+        // Bright inner core — highly visible
+        let core = SCNNode(geometry: SCNSphere(radius: 0.35))
         let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor(red: 1.0, green: 0.5, blue: 0.1, alpha: 1)
-        mat.emission.contents = UIColor(red: 1.0, green: 0.4, blue: 0.05, alpha: 1)
-        mat.emission.intensity = 2.0
+        mat.diffuse.contents = UIColor(red: 1.0, green: 0.55, blue: 0.1, alpha: 1)
+        mat.emission.contents = UIColor(red: 1.0, green: 0.45, blue: 0.05, alpha: 1)
+        mat.emission.intensity = 2.5
         mat.lightingModel = .constant
-        mat.transparency = 0.6
+        mat.transparency = 0.75
+        mat.readsFromDepthBuffer = false
         core.geometry?.firstMaterial = mat
+        core.name = "spirit_core"
         spirit.addChildNode(core)
 
-        let halo = SCNNode(geometry: SCNSphere(radius: 0.4))
+        // Large outer glow halo
+        let halo = SCNNode(geometry: SCNSphere(radius: 0.6))
         let haloMat = SCNMaterial()
-        haloMat.diffuse.contents = UIColor(red: 1.0, green: 0.35, blue: 0.0, alpha: 1)
-        haloMat.emission.contents = UIColor(red: 1.0, green: 0.35, blue: 0.0, alpha: 1)
-        haloMat.emission.intensity = 1.0
+        haloMat.diffuse.contents = UIColor(red: 1.0, green: 0.4, blue: 0.0, alpha: 1)
+        haloMat.emission.contents = UIColor(red: 1.0, green: 0.4, blue: 0.0, alpha: 1)
+        haloMat.emission.intensity = 1.5
         haloMat.lightingModel = .constant
-        haloMat.transparency = 0.15
+        haloMat.transparency = 0.25
         haloMat.writesToDepthBuffer = false
+        haloMat.readsFromDepthBuffer = false
         halo.geometry?.firstMaterial = haloMat
+        halo.name = "spirit_halo"
         spirit.addChildNode(halo)
 
+        // Omni light so it illuminates nearby surfaces
         let light = SCNLight()
         light.type = .omni
-        light.color = UIColor(red: 1.0, green: 0.4, blue: 0.0, alpha: 1)
-        light.intensity = 200
-        light.attenuationEndDistance = 2.0
+        light.color = UIColor(red: 1.0, green: 0.45, blue: 0.0, alpha: 1)
+        light.intensity = 400
+        light.attenuationEndDistance = 3.5
         spirit.light = light
 
+        // Dense particle trail for visibility and motion
         let trail = SCNParticleSystem()
-        trail.birthRate = 20
-        trail.particleLifeSpan = 0.6
-        trail.particleSize = 0.03
-        trail.particleColor = UIColor(red: 1.0, green: 0.5, blue: 0.1, alpha: 0.7)
-        trail.emitterShape = SCNSphere(radius: 0.1)
-        trail.particleVelocity = 0.02
+        trail.birthRate = 60
+        trail.particleLifeSpan = 0.8
+        trail.particleSize = 0.06
+        trail.particleSizeVariation = 0.02
+        trail.particleColor = UIColor(red: 1.0, green: 0.55, blue: 0.15, alpha: 0.85)
+        trail.particleColorVariation = SCNVector4(0, 0.1, 0.05, 0.1)
+        trail.emitterShape = SCNSphere(radius: 0.15)
+        trail.particleVelocity = 0.05
+        trail.spreadingAngle = 180
         trail.blendMode = .additive
         trail.isLightingEnabled = false
         spirit.addParticleSystem(trail)
 
+        // Breathing pulse + gentle hover bob
         let pulse = SCNAction.repeatForever(.sequence([
-            .scale(to: 1.1, duration: 0.5),
-            .scale(to: 0.9, duration: 0.5)
+            .scale(to: 1.15, duration: 0.6),
+            .scale(to: 0.88, duration: 0.6)
         ]))
-        spirit.runAction(pulse)
+        let hover = SCNAction.repeatForever(.sequence([
+            .moveBy(x: 0, y: 0.08, z: 0, duration: 0.9),
+            .moveBy(x: 0, y: -0.08, z: 0, duration: 0.9)
+        ]))
+        spirit.runAction(pulse, forKey: "pulse")
+        spirit.runAction(hover, forKey: "hover")
 
         let localPos = tracker.convertPosition(worldPosition, from: nil)
         spirit.position = SCNVector3(localPos.x, localPos.y + 1.2, localPos.z)
@@ -587,6 +605,26 @@ final class ARSceneDirector {
         self.spiritNode = spirit
 
         spirit.runAction(.fadeIn(duration: 1.0))
+    }
+
+    /// Plays a bright flash on the spirit to signal a backoff touch.
+    func playSpiritBackoffEffect() {
+        guard let spirit = spiritNode else { return }
+        let flash = SCNAction.sequence([
+            .customAction(duration: 0.15) { node, t in
+                let frac = Float(t / 0.15)
+                node.childNodes.forEach { child in
+                    child.geometry?.firstMaterial?.emission.intensity = CGFloat(2.5 + frac * 4.0)
+                }
+            },
+            .customAction(duration: 0.35) { node, t in
+                let frac = Float(t / 0.35)
+                node.childNodes.forEach { child in
+                    child.geometry?.firstMaterial?.emission.intensity = CGFloat(6.5 - frac * 4.0)
+                }
+            }
+        ])
+        spirit.runAction(flash, forKey: "backoff_flash")
     }
 
     /// Moves the spirit toward the player. Returns distance to player.

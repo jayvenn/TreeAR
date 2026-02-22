@@ -437,6 +437,7 @@ extension ARExperienceViewModel: BossCombatDelegate {
                         transition(to: .playerDefeated)
                         return
                     }
+                    sceneDirector.playSpiritBackoffEffect()
                     spiritBackoffTimer = Self.spiritBackoffDuration
                 } else {
                     sceneDirector.removeSpirit()
