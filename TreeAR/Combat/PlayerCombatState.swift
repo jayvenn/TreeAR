@@ -10,14 +10,14 @@ import Foundation
 /// Mutable value type tracking the player's combat stats for one fight session.
 struct PlayerCombatState {
 
-    // MARK: - Configuration
+    // MARK: - Configuration (values from init based on Constants.isDemoMode)
 
-    let maxHP: Int = 100
-    let baseAttackDamage: Int = 10
-    let baseAttackCooldown: TimeInterval = 0.55
-    let attackRange: Float = 1.5
-    let invulnerabilityDuration: TimeInterval = 1.0
-    let healAmount: Int = 40
+    let maxHP: Int
+    let baseAttackDamage: Int
+    let baseAttackCooldown: TimeInterval
+    let attackRange: Float
+    let invulnerabilityDuration: TimeInterval
+    let healAmount: Int
 
     // MARK: - Machine Gun Mode
 
@@ -45,7 +45,22 @@ struct PlayerCombatState {
 
     // MARK: - Init
 
-    init() {
+    init(isDemo: Bool = Constants.isDemoMode) {
+        if isDemo {
+            self.maxHP = 220
+            self.baseAttackDamage = 28
+            self.baseAttackCooldown = 0.45
+            self.attackRange = 1.9
+            self.invulnerabilityDuration = 1.4
+            self.healAmount = 55
+        } else {
+            self.maxHP = 100
+            self.baseAttackDamage = 10
+            self.baseAttackCooldown = 0.55
+            self.attackRange = 1.5
+            self.invulnerabilityDuration = 1.0
+            self.healAmount = 40
+        }
         self.currentHP = maxHP
     }
 

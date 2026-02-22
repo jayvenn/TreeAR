@@ -21,7 +21,20 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
     }()
     
     private let sproutView = AnimatedSproutView()
-    
+
+    private let difficultySegmentedControl: UISegmentedControl = {
+        let items = ["DEMO", "4REAL"]
+        let control = UISegmentedControl(items: items)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.selectedSegmentIndex = Constants.isDemoMode ? 0 : 1
+        control.selectedSegmentTintColor = DesignSystem.Colors.primary
+        control.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: DesignSystem.Typography.subheadline], for: .selected)
+        control.setTitleTextAttributes([.foregroundColor: DesignSystem.Colors.textSecondary, .font: DesignSystem.Typography.subheadline], for: .normal)
+        control.alpha = 0
+        control.addTarget(self, action: #selector(difficultyChanged), for: .valueChanged)
+        return control
+    }()
+
     private lazy var beginButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Enter the Jungle", for: .normal)
@@ -78,6 +91,7 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
         
         view.addSubviews(views: [
             sproutContainerView,
+            difficultySegmentedControl,
             beginButton
         ])
         
@@ -87,12 +101,17 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
             sproutContainerView.topAnchor.constraint(equalTo: safe.topAnchor, constant: DesignSystem.Spacing.xxl),
             sproutContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             sproutContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
-            sproutContainerView.bottomAnchor.constraint(equalTo: beginButton.topAnchor, constant: -DesignSystem.Spacing.xxl),
+            sproutContainerView.bottomAnchor.constraint(equalTo: difficultySegmentedControl.topAnchor, constant: -DesignSystem.Spacing.xxl),
             
             sproutView.topAnchor.constraint(equalTo: sproutContainerView.topAnchor),
             sproutView.leadingAnchor.constraint(equalTo: sproutContainerView.leadingAnchor),
             sproutView.trailingAnchor.constraint(equalTo: sproutContainerView.trailingAnchor),
             sproutView.bottomAnchor.constraint(equalTo: sproutContainerView.bottomAnchor),
+            
+            difficultySegmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
+            difficultySegmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
+            difficultySegmentedControl.bottomAnchor.constraint(equalTo: beginButton.topAnchor, constant: -DesignSystem.Spacing.md),
+            difficultySegmentedControl.heightAnchor.constraint(equalToConstant: 36),
             
             beginButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: DesignSystem.Spacing.lg),
             beginButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -DesignSystem.Spacing.lg),
@@ -117,8 +136,13 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
 
     private func showBeginButton(afterDelay delay: TimeInterval = 0) {
         UIView.animate(withDuration: 1.0, delay: delay, options: .curveEaseOut) {
+            self.difficultySegmentedControl.alpha = 1
             self.beginButton.alpha = 1
         }
+    }
+
+    @objc private func difficultyChanged() {
+        Constants.isDemoMode = (difficultySegmentedControl.selectedSegmentIndex == 0)
     }
 
     // MARK: - AVAudioPlayerDelegate

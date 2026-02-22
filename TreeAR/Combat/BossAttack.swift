@@ -19,11 +19,20 @@ extension BossAttack {
 
     /// Seconds the telegraph indicator is visible before the attack executes.
     var telegraphDuration: TimeInterval {
-        switch self {
-        case .groundSlam:    return 1.0
-        case .sweep:         return 0.8
-        case .stompWave:     return 1.0
-        case .enragedCombo:  return 1.3
+        if Constants.isDemoMode {
+            switch self {
+            case .groundSlam:    return 1.3
+            case .sweep:         return 1.1
+            case .stompWave:     return 1.3
+            case .enragedCombo:  return 1.6
+            }
+        } else {
+            switch self {
+            case .groundSlam:    return 1.0
+            case .sweep:         return 0.8
+            case .stompWave:     return 1.0
+            case .enragedCombo:  return 1.3
+            }
         }
     }
 
@@ -59,11 +68,20 @@ extension BossAttack {
 
     /// HP removed from the player if the attack connects.
     var damage: Int {
-        switch self {
-        case .groundSlam:    return 30
-        case .sweep:         return 20
-        case .stompWave:     return 25
-        case .enragedCombo:  return 50
+        if Constants.isDemoMode {
+            switch self {
+            case .groundSlam:    return 14
+            case .sweep:         return 10
+            case .stompWave:     return 12
+            case .enragedCombo:  return 22
+            }
+        } else {
+            switch self {
+            case .groundSlam:    return 30
+            case .sweep:         return 20
+            case .stompWave:     return 25
+            case .enragedCombo:  return 50
+            }
         }
     }
 

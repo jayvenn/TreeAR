@@ -194,9 +194,9 @@ extension ARViewController: ARExperienceViewModelDelegate {
 
     func viewModel(_ vm: ARExperienceViewModel, didTransitionTo state: ARExperienceState) {
         if state.showsScanningOverlay {
-            UIView.animate(withDuration: animationDuration) { self.surfaceScanningView.alpha = 1 }
+            UIView.animate(withDuration: Constants.animationDuration) { self.surfaceScanningView.alpha = 1 }
         } else if state == .awaitingGrassTap {
-            UIView.animate(withDuration: animationDuration) { self.surfaceScanningView.alpha = 0 }
+            UIView.animate(withDuration: Constants.animationDuration) { self.surfaceScanningView.alpha = 0 }
             lockPlaneDetection()
         }
 
@@ -221,6 +221,7 @@ extension ARViewController: ARExperienceViewModelDelegate {
         case .spiritChase:
             combatHUD.updateMachineGunTimer(fraction: 0)
             combatHUD.showChaseTimer()
+            combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: 5.0)
             combatHUD.updateChaseTimer(secondsLeft: 20)
         case .playerDefeated:
             combatHUD.hideChaseTimer()

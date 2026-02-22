@@ -51,11 +51,15 @@ final class ARExperienceViewModel: NSObject {
 
     // MARK: - Spirit Chase
 
-    private static let chaseDuration: TimeInterval = 20
-    private static let spiritCatchDistance: Float = 0.8
+    private static var chaseDuration: TimeInterval { Constants.isDemoMode ? 28 : 20 }
+    private static var spiritCatchDistance: Float { Constants.isDemoMode ? 0.65 : 0.8 }
+    private static var spiritTouchDamage: Int { Constants.isDemoMode ? 1 : .max }
+    private static var spiritBackoffDuration: TimeInterval { 2.2 }
+    private static var spiritRetreatSpeed: Float { 2.8 }
     private var chaseTimer: TimeInterval = 0
-    private var spiritBaseSpeed: Float = 1.5
-    private var spiritMaxSpeed: Float = 3.5
+    private var spiritBackoffTimer: TimeInterval = 0
+    private var spiritBaseSpeed: Float { Constants.isDemoMode ? 1.0 : 1.5 }
+    private var spiritMaxSpeed: Float { Constants.isDemoMode ? 2.2 : 3.5 }
 
     // MARK: - State
 
@@ -381,7 +385,11 @@ extension ARExperienceViewModel: BossCombatDelegate {
 
     private func beginSpiritChase(from position: SCNVector3) {
         chaseTimer = Self.chaseDuration
+        spiritBackoffTimer = 0
         lastUpdateTime = 0
+        if Constants.isDemoMode {
+            playerState.heal(playerState.maxHP - playerState.currentHP)
+        }
         sceneDirector.spawnSpirit(at: position)
         transition(to: .spiritChase)
     }
@@ -395,23 +403,47 @@ extension ARExperienceViewModel: BossCombatDelegate {
         lastUpdateTime = time
 
         chaseTimer -= dt
-
-        let progress = Float(1.0 - chaseTimer / Self.chaseDuration)
-        let speed = spiritBaseSpeed + (spiritMaxSpeed - spiritBaseSpeed) * progress
-
-        let dist = sceneDirector.advanceSpiritToward(
-            cameraTransform: cameraTransform,
-            speed: speed,
-            deltaTime: Float(dt)
-        )
+        playerState.update(deltaTime: dt)
 
         let secondsLeft = max(0, Int(ceil(chaseTimer)))
         delegate?.viewModelDidUpdateChase(self, secondsLeft: secondsLeft)
+        delegate?.viewModelDidUpdateCombat(self, playerHP: playerState, bossHPFraction: 0, playerDistance: 0)
 
-        if dist < Self.spiritCatchDistance {
-            sceneDirector.removeSpirit()
-            transition(to: .playerDefeated)
-            return
+        if Constants.isDemoMode, spiritBackoffTimer > 0 {
+            spiritBackoffTimer -= dt
+            _ = sceneDirector.retreatSpirit(
+                from: cameraTransform,
+                speed: Self.spiritRetreatSpeed,
+                deltaTime: Float(dt)
+            )
+        } else {
+            let progress = Float(1.0 - chaseTimer / Self.chaseDuration)
+            let speed = spiritBaseSpeed + (spiritMaxSpeed - spiritBaseSpeed) * progress
+
+            let dist = sceneDirector.advanceSpiritToward(
+                cameraTransform: cameraTransform,
+                speed: speed,
+                deltaTime: Float(dt)
+            )
+
+            if dist < Self.spiritCatchDistance {
+                if Constants.isDemoMode {
+                    playerState.takeDamage(Self.spiritTouchDamage)
+                    rigidHaptic.impactOccurred(intensity: 0.8)
+                    delegate?.viewModelPlayerDidTakeDamage(self)
+
+                    if !playerState.isAlive {
+                        sceneDirector.removeSpirit()
+                        transition(to: .playerDefeated)
+                        return
+                    }
+                    spiritBackoffTimer = Self.spiritBackoffDuration
+                } else {
+                    sceneDirector.removeSpirit()
+                    transition(to: .playerDefeated)
+                    return
+                }
+            }
         }
 
         if chaseTimer <= 0 {

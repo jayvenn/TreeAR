@@ -38,7 +38,7 @@ final class BossCombatManager {
 
     // MARK: - Configuration
 
-    let maxHP: Int = 600
+    var maxHP: Int { Constants.isDemoMode ? 280 : 600 }
     private(set) var currentHP: Int = 600
 
     // MARK: - State

@@ -619,6 +619,39 @@ final class ARSceneDirector {
         return dist
     }
 
+    /// Moves the spirit away from the player (e.g. after a touch). Returns new distance to player.
+    @discardableResult
+    func retreatSpirit(from cameraTransform: simd_float4x4, speed: Float, deltaTime: Float) -> Float {
+        guard let spirit = spiritNode, let tracker = trackerNode else { return .greatestFiniteMagnitude }
+
+        let spiritWorld = spirit.worldPosition
+        let camX = cameraTransform.columns.3.x
+        let camY = cameraTransform.columns.3.y
+        let camZ = cameraTransform.columns.3.z
+
+        let dx = camX - spiritWorld.x
+        let dy = camY - spiritWorld.y
+        let dz = camZ - spiritWorld.z
+        let dist = sqrt(dx * dx + dy * dy + dz * dz)
+        guard dist > 0.01 else { return dist }
+
+        let nx = dx / dist
+        let ny = dy / dist
+        let nz = dz / dist
+
+        let step = speed * deltaTime
+        let curLocal = spirit.position
+        let curWorld = tracker.convertPosition(curLocal, to: nil)
+        let targetWorld = SCNVector3(curWorld.x - nx * step, curWorld.y - ny * step, curWorld.z - nz * step)
+        let targetLocal = tracker.convertPosition(targetWorld, from: nil)
+        spirit.position = targetLocal
+
+        let newDx = camX - targetWorld.x
+        let newDy = camY - targetWorld.y
+        let newDz = camZ - targetWorld.z
+        return sqrt(newDx * newDx + newDy * newDy + newDz * newDz)
+    }
+
     func removeSpirit() {
         spiritNode?.removeAllActions()
         spiritNode?.removeAllParticleSystems()

@@ -18,19 +18,35 @@ enum BossPhase: Int, Comparable {
     }
 
     var idleDurationRange: ClosedRange<TimeInterval> {
-        switch self {
-        case .phase1: return 1.4...2.0
-        case .phase2: return 0.9...1.4
-        case .phase3: return 0.5...0.9
+        if Constants.isDemoMode {
+            switch self {
+            case .phase1: return 1.8...2.6
+            case .phase2: return 1.2...1.8
+            case .phase3: return 0.7...1.2
+            }
+        } else {
+            switch self {
+            case .phase1: return 1.4...2.0
+            case .phase2: return 0.9...1.4
+            case .phase3: return 0.5...0.9
+            }
         }
     }
 
     /// Walk speed (meters/second) when chasing the player.
     var moveSpeed: Float {
-        switch self {
-        case .phase1: return 1.0
-        case .phase2: return 1.4
-        case .phase3: return 1.8
+        if Constants.isDemoMode {
+            switch self {
+            case .phase1: return 0.7
+            case .phase2: return 1.0
+            case .phase3: return 1.3
+            }
+        } else {
+            switch self {
+            case .phase1: return 1.0
+            case .phase2: return 1.4
+            case .phase3: return 1.8
+            }
         }
     }
 
