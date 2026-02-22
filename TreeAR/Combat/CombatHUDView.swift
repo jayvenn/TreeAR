@@ -123,7 +123,7 @@ final class CombatHUDView: UIView {
                 heart.tintColor = .systemRed
             } else {
                 heart.image = UIImage(systemName: "heart")
-                heart.tintColor = UIColor.white.withAlphaComponent(0.3)
+                heart.tintColor = UIColor.white.withAlphaComponent(0.6)
             }
         }
     }
