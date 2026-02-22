@@ -59,9 +59,40 @@ final class AudioService {
         }
     }
 
+    // MARK: - Voiceover
+
+    enum Voiceover: CaseIterable {
+        case tapAttack
+        case dodge
+        case telegraph
+        case phase2
+        case phase3
+        case spiritChase
+        case bossSpawn
+        case victory
+        case defeat
+        case bossDefeat
+
+        fileprivate var resource: String {
+            switch self {
+            case .tapAttack:    return "vo_tap_attack"
+            case .dodge:        return "vo_dodge"
+            case .telegraph:    return "vo_telegraph"
+            case .phase2:       return "vo_phase2"
+            case .phase3:       return "vo_phase3"
+            case .spiritChase:  return "vo_spirit_chase"
+            case .bossSpawn:    return "vo_boss_spawn"
+            case .victory:      return "vo_victory"
+            case .defeat:       return "vo_defeat"
+            case .bossDefeat:   return "vo_boss_defeat"
+            }
+        }
+    }
+
     // MARK: - Properties
 
     private var players: [Track: AVAudioPlayer] = [:]
+    private var voiceoverPlayer: AVAudioPlayer?
 
     // MARK: - Init
 
@@ -81,8 +112,25 @@ final class AudioService {
         players[track]?.stop()
     }
 
+    /// Plays a voiceover clip on a dedicated channel, stopping any currently playing VO.
+    /// Missing files are silently ignored.
+    func playVO(_ vo: Voiceover) {
+        voiceoverPlayer?.stop()
+        guard let url = Bundle.main.url(forResource: vo.resource, withExtension: "mp3"),
+              let player = try? AVAudioPlayer(contentsOf: url) else { return }
+        player.volume = 0.85
+        player.play()
+        voiceoverPlayer = player
+    }
+
+    func stopVO() {
+        voiceoverPlayer?.stop()
+        voiceoverPlayer = nil
+    }
+
     func stopAll() {
         players.values.forEach { $0.stop() }
+        stopVO()
     }
 
     // MARK: - Private

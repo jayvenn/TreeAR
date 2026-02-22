@@ -17,6 +17,7 @@ final class CombatHUDView: UIView {
     // MARK: - Callbacks
 
     var onRetryTapped: (() -> Void)?
+    var onVictoryDismiss: (() -> Void)?
 
     // MARK: - Backdrop Plates
 
@@ -64,6 +65,8 @@ final class CombatHUDView: UIView {
     private let tipBackdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
     private var tipDismissWork: DispatchWorkItem?
     private var shownTipKeys = Set<String>()
+    private var tipQueue: [(text: String, id: String, duration: TimeInterval)] = []
+    private var isTipVisible = false
 
     // MARK: - Chase Timer
 
@@ -76,6 +79,13 @@ final class CombatHUDView: UIView {
     private let retryContainer = UIView()
     private let deathLabel = UILabel()
     private let retryButton = UIButton(type: .system)
+
+    // MARK: - Victory
+
+    private let victoryContainer = UIView()
+    private let victoryTitleLabel = UILabel()
+    private let victorySubtitleLabel = UILabel()
+    private let victoryReturnButton = UIButton(type: .system)
 
     // MARK: - Init
 
@@ -92,6 +102,7 @@ final class CombatHUDView: UIView {
         setupCombatTips()
         setupChaseTimer()
         setupRetry()
+        setupVictory()
     }
 
     @available(*, unavailable)
@@ -202,6 +213,22 @@ final class CombatHUDView: UIView {
         retryContainer.alpha = 0
     }
 
+    func showVictoryPrompt() {
+        victoryContainer.alpha = 0
+        victoryContainer.isHidden = false
+        victoryContainer.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        UIView.animate(withDuration: 0.8, delay: 1.0, usingSpringWithDamping: 0.7,
+                       initialSpringVelocity: 0, options: .curveEaseOut) {
+            self.victoryContainer.alpha = 1
+            self.victoryContainer.transform = .identity
+        }
+    }
+
+    func hideVictoryPrompt() {
+        victoryContainer.isHidden = true
+        victoryContainer.alpha = 0
+    }
+
     func triggerScreenShake() {
         let offset: CGFloat = 6
         let anim = CAKeyframeAnimation(keyPath: "transform.translation.x")
@@ -243,10 +270,29 @@ final class CombatHUDView: UIView {
     // MARK: - Combat Tips
 
     /// Shows a one-time tip keyed by `id`. Each `id` displays at most once per fight.
+    /// If a tip is already visible, the new one is queued and shown after the current one dismisses.
     func showTip(_ text: String, id: String, duration: TimeInterval = 3.5) {
         guard !shownTipKeys.contains(id) else { return }
         shownTipKeys.insert(id)
 
+        if isTipVisible {
+            tipQueue.append((text: text, id: id, duration: duration))
+            return
+        }
+
+        presentTip(text: text, duration: duration)
+    }
+
+    func resetTips() {
+        shownTipKeys.removeAll()
+        tipQueue.removeAll()
+        tipDismissWork?.cancel()
+        isTipVisible = false
+        tipBackdrop.alpha = 0
+    }
+
+    private func presentTip(text: String, duration: TimeInterval) {
+        isTipVisible = true
         tipDismissWork?.cancel()
         tipLabel.text = text
         tipBackdrop.transform = CGAffineTransform(translationX: 0, y: 12)
@@ -256,16 +302,22 @@ final class CombatHUDView: UIView {
         }
 
         let dismiss = DispatchWorkItem { [weak self] in
-            UIView.animate(withDuration: 0.3) { self?.tipBackdrop.alpha = 0 }
+            guard let self else { return }
+            UIView.animate(withDuration: 0.3, animations: {
+                self.tipBackdrop.alpha = 0
+            }) { _ in
+                self.isTipVisible = false
+                self.drainTipQueue()
+            }
         }
         tipDismissWork = dismiss
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: dismiss)
     }
 
-    func resetTips() {
-        shownTipKeys.removeAll()
-        tipBackdrop.alpha = 0
-        tipDismissWork?.cancel()
+    private func drainTipQueue() {
+        guard !tipQueue.isEmpty else { return }
+        let next = tipQueue.removeFirst()
+        presentTip(text: next.text, duration: next.duration)
     }
 
     // MARK: - Chase Timer
@@ -616,15 +668,15 @@ final class CombatHUDView: UIView {
 
         NSLayoutConstraint.activate([
             chaseBackdrop.centerXAnchor.constraint(equalTo: centerXAnchor),
-            chaseBackdrop.centerYAnchor.constraint(equalTo: centerYAnchor),
+            chaseBackdrop.bottomAnchor.constraint(equalTo: bottomPlate.topAnchor, constant: -12),
             chaseBackdrop.widthAnchor.constraint(equalToConstant: 120),
 
-            chaseTimerLabel.topAnchor.constraint(equalTo: chaseBackdrop.contentView.topAnchor, constant: 14),
+            chaseTimerLabel.topAnchor.constraint(equalTo: chaseBackdrop.contentView.topAnchor, constant: 10),
             chaseTimerLabel.centerXAnchor.constraint(equalTo: chaseBackdrop.contentView.centerXAnchor),
 
-            chaseSubtitle.topAnchor.constraint(equalTo: chaseTimerLabel.bottomAnchor, constant: 2),
+            chaseSubtitle.topAnchor.constraint(equalTo: chaseTimerLabel.bottomAnchor, constant: 0),
             chaseSubtitle.centerXAnchor.constraint(equalTo: chaseBackdrop.contentView.centerXAnchor),
-            chaseSubtitle.bottomAnchor.constraint(equalTo: chaseBackdrop.contentView.bottomAnchor, constant: -14),
+            chaseSubtitle.bottomAnchor.constraint(equalTo: chaseBackdrop.contentView.bottomAnchor, constant: -10),
         ])
     }
 
@@ -671,6 +723,61 @@ final class CombatHUDView: UIView {
     }
 
     @objc private func retryTapped() { onRetryTapped?() }
+
+    private func setupVictory() {
+        victoryContainer.translatesAutoresizingMaskIntoConstraints = false
+        victoryContainer.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        victoryContainer.layer.cornerRadius = 24
+        victoryContainer.isHidden = true
+        addSubview(victoryContainer)
+
+        victoryTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        victoryTitleLabel.text = "V I C T O R Y"
+        victoryTitleLabel.font = .systemFont(ofSize: 32, weight: .heavy)
+        victoryTitleLabel.textColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1)
+        victoryTitleLabel.textAlignment = .center
+        applyShadow(to: victoryTitleLabel)
+        victoryContainer.addSubview(victoryTitleLabel)
+
+        victorySubtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        victorySubtitleLabel.text = "The jungle is safe once more."
+        victorySubtitleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        victorySubtitleLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+        victorySubtitleLabel.textAlignment = .center
+        victorySubtitleLabel.numberOfLines = 2
+        applyShadow(to: victorySubtitleLabel)
+        victoryContainer.addSubview(victorySubtitleLabel)
+
+        victoryReturnButton.translatesAutoresizingMaskIntoConstraints = false
+        victoryReturnButton.setTitle("  RETURN TO JUNGLE  ", for: .normal)
+        victoryReturnButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        victoryReturnButton.setTitleColor(UIColor(red: 0.15, green: 0.15, blue: 0.1, alpha: 1), for: .normal)
+        victoryReturnButton.backgroundColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1)
+        victoryReturnButton.layer.cornerRadius = 12
+        victoryReturnButton.addTarget(self, action: #selector(victoryReturnTapped), for: .touchUpInside)
+        victoryContainer.addSubview(victoryReturnButton)
+
+        NSLayoutConstraint.activate([
+            victoryContainer.centerXAnchor.constraint(equalTo: centerXAnchor),
+            victoryContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
+            victoryContainer.widthAnchor.constraint(equalToConstant: 300),
+
+            victoryTitleLabel.topAnchor.constraint(equalTo: victoryContainer.topAnchor, constant: 32),
+            victoryTitleLabel.centerXAnchor.constraint(equalTo: victoryContainer.centerXAnchor),
+
+            victorySubtitleLabel.topAnchor.constraint(equalTo: victoryTitleLabel.bottomAnchor, constant: 12),
+            victorySubtitleLabel.leadingAnchor.constraint(equalTo: victoryContainer.leadingAnchor, constant: 20),
+            victorySubtitleLabel.trailingAnchor.constraint(equalTo: victoryContainer.trailingAnchor, constant: -20),
+
+            victoryReturnButton.topAnchor.constraint(equalTo: victorySubtitleLabel.bottomAnchor, constant: 28),
+            victoryReturnButton.centerXAnchor.constraint(equalTo: victoryContainer.centerXAnchor),
+            victoryReturnButton.heightAnchor.constraint(equalToConstant: 50),
+            victoryReturnButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            victoryReturnButton.bottomAnchor.constraint(equalTo: victoryContainer.bottomAnchor, constant: -28),
+        ])
+    }
+
+    @objc private func victoryReturnTapped() { onVictoryDismiss?() }
 
     // MARK: - Helpers
 

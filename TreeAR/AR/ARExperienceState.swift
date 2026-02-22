@@ -40,7 +40,7 @@ extension ARExperienceState {
 
     var showsCombatHUD: Bool {
         switch self {
-        case .combatActive, .bossDefeated, .spiritChase, .playerDefeated: return true
+        case .combatActive, .bossDefeated, .spiritChase, .playerDefeated, .victory: return true
         default: return false
         }
     }

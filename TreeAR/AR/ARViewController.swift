@@ -11,6 +11,10 @@ import ARKit
 /// Thin presentation layer for the AR experience.
 final class ARViewController: UIViewController {
 
+    // MARK: - Callbacks
+
+    var onDismiss: (() -> Void)?
+
     // MARK: - Dependencies
 
     private let viewModel: ARExperienceViewModel
@@ -19,6 +23,7 @@ final class ARViewController: UIViewController {
 
     private let sceneView = ARSCNView(frame: .zero)
     private var weaponAttached = false
+    private var playedVOKeys = Set<AudioService.Voiceover>()
 
     // MARK: - UI
 
@@ -51,6 +56,7 @@ final class ARViewController: UIViewController {
         hud.alpha = 0
         hud.isUserInteractionEnabled = true
         hud.onRetryTapped = { [weak self] in self?.viewModel.handleRetry() }
+        hud.onVictoryDismiss = { [weak self] in self?.onDismiss?() }
         return hud
     }()
 
@@ -181,10 +187,18 @@ final class ARViewController: UIViewController {
                                  max: viewModel.playerState.maxHP)
         combatHUD.updateMachineGunTimer(fraction: 0)
         combatHUD.hideRetryPrompt()
+        combatHUD.hideVictoryPrompt()
     }
 
     private func hideCombatHUD() {
         UIView.animate(withDuration: 0.5) { self.combatHUD.alpha = 0 }
+    }
+
+    /// Plays a voiceover clip at most once per fight. Mirrors the one-time tip behavior.
+    private func playVOOnce(_ vo: AudioService.Voiceover) {
+        guard !playedVOKeys.contains(vo) else { return }
+        playedVOKeys.insert(vo)
+        viewModel.audioService.playVO(vo)
     }
 }
 
@@ -213,26 +227,32 @@ extension ARViewController: ARExperienceViewModelDelegate {
         switch state {
         case .bossSpawning:
             hideInstruction()
+            playVOOnce(.bossSpawn)
         case .combatActive:
             combatHUD.resetTips()
+            playedVOKeys.removeAll()
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 self?.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack")
+                self?.playVOOnce(.tapAttack)
             }
         case .spiritChase:
             combatHUD.updateMachineGunTimer(fraction: 0)
             combatHUD.showChaseTimer()
             combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: 5.0)
             combatHUD.updateChaseTimer(secondsLeft: 20)
+            playVOOnce(.spiritChase)
         case .playerDefeated:
             combatHUD.hideChaseTimer()
             combatHUD.showRetryPrompt()
             combatHUD.updateMachineGunTimer(fraction: 0)
+            playVOOnce(.defeat)
+        case .bossDefeated:
+            playVOOnce(.bossDefeat)
         case .victory:
             combatHUD.hideChaseTimer()
             combatHUD.updateMachineGunTimer(fraction: 0)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                self?.hideCombatHUD()
-            }
+            combatHUD.showVictoryPrompt()
+            playVOOnce(.victory)
         default:
             break
         }
@@ -254,11 +274,13 @@ extension ARViewController: ARExperienceViewModelDelegate {
         combatHUD.flashDamage()
         combatHUD.triggerScreenShake()
         combatHUD.showTip("Move away when the ground glows red!", id: "dodge")
+        playVOOnce(.dodge)
     }
 
     func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
         combatHUD.triggerScreenShake()
         combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph")
+        playVOOnce(.telegraph)
     }
 
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
@@ -266,10 +288,12 @@ extension ARViewController: ARExperienceViewModelDelegate {
         if phase == .phase2 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 self?.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2")
+                self?.playVOOnce(.phase2)
             }
         } else if phase == .phase3 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 self?.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3")
+                self?.playVOOnce(.phase3)
             }
         }
     }

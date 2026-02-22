@@ -24,7 +24,7 @@ struct ContentView: View {
         )
         .ignoresSafeArea()
         .fullScreenCover(isPresented: $coordinator.showARExperience) {
-            ARViewRepresentable()
+            ARViewRepresentable(onDismiss: { coordinator.showARExperience = false })
                 .ignoresSafeArea()
         }
     }
@@ -45,14 +45,16 @@ struct IntroductionViewRepresentable: UIViewControllerRepresentable {
 }
 
 struct ARViewRepresentable: UIViewControllerRepresentable {
-    /// Composition root: all concrete service types are constructed here,
-    /// keeping every ViewController and ViewModel free of direct dependencies.
+    var onDismiss: () -> Void
+
     func makeUIViewController(context: Context) -> ARViewController {
         let audioService  = AudioService()
         let sceneDirector = ARSceneDirector()
         let viewModel     = ARExperienceViewModel(sceneDirector: sceneDirector,
                                                   audioService: audioService)
-        return ARViewController(viewModel: viewModel)
+        let vc = ARViewController(viewModel: viewModel)
+        vc.onDismiss = onDismiss
+        return vc
     }
 
     func updateUIViewController(_ uiViewController: ARViewController, context: Context) {}
