@@ -162,18 +162,18 @@ enum HollowBoss {
     private static func buildLegs(on root: SCNNode) {
         for side: Float in [-1, 1] {
             let hip = SCNNode()
-            hip.position = SCNVector3(side * 0.16, 0.32, 0)
+            hip.position = SCNVector3(side * 0.15, 0.30, 0)
             hip.name = side < 0 ? "leg_left" : "leg_right"
 
-            let leg = SCNNode(geometry: SCNCapsule(capRadius: 0.09, height: 0.28))
+            let leg = SCNNode(geometry: SCNCapsule(capRadius: 0.06, height: 0.24))
             leg.geometry?.firstMaterial = makeStoneMaterial()
             leg.position = SCNVector3(0, -0.04, 0)
             hip.addChildNode(leg)
 
-            let foot = SCNNode(geometry: SCNSphere(radius: 0.09))
-            foot.scale = SCNVector3(1.0, 0.45, 1.3)
+            let foot = SCNNode(geometry: SCNSphere(radius: 0.07))
+            foot.scale = SCNVector3(1.1, 0.4, 1.4)
             foot.geometry?.firstMaterial = makeArmorMaterial()
-            foot.position = SCNVector3(0, -0.24, 0.03)
+            foot.position = SCNVector3(0, -0.22, 0.03)
             hip.addChildNode(foot)
 
             root.addChildNode(hip)

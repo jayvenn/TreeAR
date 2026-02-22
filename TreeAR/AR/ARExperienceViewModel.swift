@@ -22,6 +22,7 @@ protocol ARExperienceViewModelDelegate: AnyObject {
     func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool)
     func viewModelPlayerDidPickupLoot(_ vm: ARExperienceViewModel, type: LootType)
     func viewModelMachineGunDidExpire(_ vm: ARExperienceViewModel)
+    func viewModelDidUpdateChase(_ vm: ARExperienceViewModel, secondsLeft: Int)
 }
 
 // MARK: - ViewModel
@@ -47,6 +48,14 @@ final class ARExperienceViewModel: NSObject {
     private var lootSpawnTimer: TimeInterval = 0
     private let lootSpawnInterval: ClosedRange<TimeInterval> = 12...20
     private var wasMachineGunActive = false
+
+    // MARK: - Spirit Chase
+
+    private static let chaseDuration: TimeInterval = 20
+    private static let spiritCatchDistance: Float = 0.8
+    private var chaseTimer: TimeInterval = 0
+    private var spiritBaseSpeed: Float = 1.5
+    private var spiritMaxSpeed: Float = 3.5
 
     // MARK: - State
 
@@ -149,8 +158,10 @@ final class ARExperienceViewModel: NSObject {
         playerState.reset()
         bossCombat.reset()
         lootSpawnTimer = 0
+        chaseTimer = 0
         wasMachineGunActive = false
 
+        sceneDirector.removeSpirit()
         sceneDirector.removeAllLoot()
         sceneDirector.removeBoss()
         sceneDirector.deactivateMachineGunMode()
@@ -233,7 +244,7 @@ final class ARExperienceViewModel: NSObject {
 
         switch type {
         case .healthPack:
-            playerState.heal(40)
+            playerState.heal(playerState.healAmount)
         case .wizardMachineGun:
             playerState.activateMachineGun()
             sceneDirector.activateMachineGunMode()
@@ -360,10 +371,52 @@ extension ARExperienceViewModel: BossCombatDelegate {
 
         sceneDirector.removeAllLoot()
 
+        let bossWorldPos = sceneDirector.bossNode?.worldPosition ?? SCNVector3Zero
         sceneDirector.playBossDeathAnimation { [weak self] in
             guard let self else { return }
             self.sceneDirector.removeBoss()
-            self.transition(to: .victory)
+            self.beginSpiritChase(from: bossWorldPos)
+        }
+    }
+
+    private func beginSpiritChase(from position: SCNVector3) {
+        chaseTimer = Self.chaseDuration
+        lastUpdateTime = 0
+        sceneDirector.spawnSpirit(at: position)
+        transition(to: .spiritChase)
+    }
+
+    func updateSpiritChase(atTime time: TimeInterval, cameraTransform: simd_float4x4) {
+        guard state == .spiritChase else { return }
+
+        let dt: TimeInterval
+        if lastUpdateTime == 0 { dt = 1.0 / 60.0 }
+        else { dt = min(time - lastUpdateTime, 0.1) }
+        lastUpdateTime = time
+
+        chaseTimer -= dt
+
+        let progress = Float(1.0 - chaseTimer / Self.chaseDuration)
+        let speed = spiritBaseSpeed + (spiritMaxSpeed - spiritBaseSpeed) * progress
+
+        let dist = sceneDirector.advanceSpiritToward(
+            cameraTransform: cameraTransform,
+            speed: speed,
+            deltaTime: Float(dt)
+        )
+
+        let secondsLeft = max(0, Int(ceil(chaseTimer)))
+        delegate?.viewModelDidUpdateChase(self, secondsLeft: secondsLeft)
+
+        if dist < Self.spiritCatchDistance {
+            sceneDirector.removeSpirit()
+            transition(to: .playerDefeated)
+            return
+        }
+
+        if chaseTimer <= 0 {
+            sceneDirector.removeSpirit()
+            transition(to: .victory)
         }
     }
 

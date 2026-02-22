@@ -14,6 +14,7 @@ enum ARExperienceState: Equatable {
     case bossSpawning
     case combatActive
     case bossDefeated
+    case spiritChase
     case playerDefeated
     case victory
 }
@@ -39,7 +40,7 @@ extension ARExperienceState {
 
     var showsCombatHUD: Bool {
         switch self {
-        case .combatActive, .bossDefeated, .playerDefeated: return true
+        case .combatActive, .bossDefeated, .spiritChase, .playerDefeated: return true
         default: return false
         }
     }

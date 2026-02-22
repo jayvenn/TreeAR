@@ -214,11 +214,20 @@ extension ARViewController: ARExperienceViewModelDelegate {
         case .bossSpawning:
             hideInstruction()
         case .combatActive:
-            break
+            combatHUD.resetTips()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack")
+            }
+        case .spiritChase:
+            combatHUD.updateMachineGunTimer(fraction: 0)
+            combatHUD.showChaseTimer()
+            combatHUD.updateChaseTimer(secondsLeft: 20)
         case .playerDefeated:
+            combatHUD.hideChaseTimer()
             combatHUD.showRetryPrompt()
             combatHUD.updateMachineGunTimer(fraction: 0)
         case .victory:
+            combatHUD.hideChaseTimer()
             combatHUD.updateMachineGunTimer(fraction: 0)
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.hideCombatHUD()
@@ -243,14 +252,25 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
         combatHUD.flashDamage()
         combatHUD.triggerScreenShake()
+        combatHUD.showTip("Move away when the ground glows red!", id: "dodge")
     }
 
     func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
         combatHUD.triggerScreenShake()
+        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph")
     }
 
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
         combatHUD.showPhaseTransition(phase)
+        if phase == .phase2 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                self?.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2")
+            }
+        } else if phase == .phase3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                self?.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3")
+            }
+        }
     }
 
     func viewModelPlayerDidHitBoss(_ vm: ARExperienceViewModel) {
@@ -261,9 +281,14 @@ extension ARViewController: ARExperienceViewModelDelegate {
         UIView.animate(withDuration: 0.15, animations: { flash.alpha = 0 }) { _ in
             flash.removeFromSuperview()
         }
+        combatHUD.showTip("Nice hit! Get close and keep attacking!", id: "hit")
     }
 
-    func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool) {}
+    func viewModelPlayerDidSwing(_ vm: ARExperienceViewModel, isHit: Bool) {
+        if !isHit {
+            combatHUD.showTip("Get closer to land your strikes!", id: "miss")
+        }
+    }
 
     func viewModelPlayerDidPickupLoot(_ vm: ARExperienceViewModel, type: LootType) {
         switch type {
@@ -280,6 +305,10 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelMachineGunDidExpire(_ vm: ARExperienceViewModel) {
         combatHUD.updateMachineGunTimer(fraction: 0)
         combatHUD.showPickupBanner(text: "WIZARD GUN EXPIRED", color: UIColor.white.withAlphaComponent(0.6))
+    }
+
+    func viewModelDidUpdateChase(_ vm: ARExperienceViewModel, secondsLeft: Int) {
+        combatHUD.updateChaseTimer(secondsLeft: secondsLeft)
     }
 }
 
@@ -301,9 +330,16 @@ extension ARViewController: ARSCNViewDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.attachWeaponIfNeeded()
-            guard self.viewModel.state == .combatActive else { return }
-            self.viewModel.updateCameraTransform(transform)
-            self.viewModel.updateCombat(atTime: time, cameraTransform: transform)
+
+            switch self.viewModel.state {
+            case .combatActive:
+                self.viewModel.updateCameraTransform(transform)
+                self.viewModel.updateCombat(atTime: time, cameraTransform: transform)
+            case .spiritChase:
+                self.viewModel.updateSpiritChase(atTime: time, cameraTransform: transform)
+            default:
+                break
+            }
         }
     }
 }

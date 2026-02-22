@@ -25,6 +25,10 @@ final class ARSceneDirector {
     private(set) var bossNode: SCNNode?
     let telegraphRenderer = BossTelegraphRenderer()
 
+    // MARK: - Spirit Chase
+
+    private(set) var spiritNode: SCNNode?
+
     // MARK: - Weapon
 
     private(set) var weaponNode: SCNNode?
@@ -520,6 +524,106 @@ final class ARSceneDirector {
 
         node.addParticleSystem(explosion)
         boss.addChildNode(node)
+    }
+
+    // MARK: - Spirit Chase
+
+    func spawnSpirit(at worldPosition: SCNVector3) {
+        assertMainThread()
+        guard let tracker = trackerNode else { return }
+
+        let spirit = SCNNode()
+        spirit.name = "spirit"
+
+        let core = SCNNode(geometry: SCNSphere(radius: 0.25))
+        let mat = SCNMaterial()
+        mat.diffuse.contents = UIColor(red: 1.0, green: 0.5, blue: 0.1, alpha: 1)
+        mat.emission.contents = UIColor(red: 1.0, green: 0.4, blue: 0.05, alpha: 1)
+        mat.emission.intensity = 2.0
+        mat.lightingModel = .constant
+        mat.transparency = 0.6
+        core.geometry?.firstMaterial = mat
+        spirit.addChildNode(core)
+
+        let halo = SCNNode(geometry: SCNSphere(radius: 0.4))
+        let haloMat = SCNMaterial()
+        haloMat.diffuse.contents = UIColor(red: 1.0, green: 0.35, blue: 0.0, alpha: 1)
+        haloMat.emission.contents = UIColor(red: 1.0, green: 0.35, blue: 0.0, alpha: 1)
+        haloMat.emission.intensity = 1.0
+        haloMat.lightingModel = .constant
+        haloMat.transparency = 0.15
+        haloMat.writesToDepthBuffer = false
+        halo.geometry?.firstMaterial = haloMat
+        spirit.addChildNode(halo)
+
+        let light = SCNLight()
+        light.type = .omni
+        light.color = UIColor(red: 1.0, green: 0.4, blue: 0.0, alpha: 1)
+        light.intensity = 200
+        light.attenuationEndDistance = 2.0
+        spirit.light = light
+
+        let trail = SCNParticleSystem()
+        trail.birthRate = 20
+        trail.particleLifeSpan = 0.6
+        trail.particleSize = 0.03
+        trail.particleColor = UIColor(red: 1.0, green: 0.5, blue: 0.1, alpha: 0.7)
+        trail.emitterShape = SCNSphere(radius: 0.1)
+        trail.particleVelocity = 0.02
+        trail.blendMode = .additive
+        trail.isLightingEnabled = false
+        spirit.addParticleSystem(trail)
+
+        let pulse = SCNAction.repeatForever(.sequence([
+            .scale(to: 1.1, duration: 0.5),
+            .scale(to: 0.9, duration: 0.5)
+        ]))
+        spirit.runAction(pulse)
+
+        let localPos = tracker.convertPosition(worldPosition, from: nil)
+        spirit.position = SCNVector3(localPos.x, localPos.y + 1.2, localPos.z)
+        spirit.opacity = 0
+        tracker.addChildNode(spirit)
+        self.spiritNode = spirit
+
+        spirit.runAction(.fadeIn(duration: 1.0))
+    }
+
+    /// Moves the spirit toward the player. Returns distance to player.
+    @discardableResult
+    func advanceSpiritToward(cameraTransform: simd_float4x4, speed: Float, deltaTime: Float) -> Float {
+        guard let spirit = spiritNode, let tracker = trackerNode else { return .greatestFiniteMagnitude }
+
+        let spiritWorld = spirit.worldPosition
+        let camX = cameraTransform.columns.3.x
+        let camY = cameraTransform.columns.3.y
+        let camZ = cameraTransform.columns.3.z
+
+        let dx = camX - spiritWorld.x
+        let dy = camY - spiritWorld.y
+        let dz = camZ - spiritWorld.z
+        let dist = sqrt(dx * dx + dy * dy + dz * dz)
+        guard dist > 0.3 else { return dist }
+
+        let step = min(speed * deltaTime, dist - 0.3)
+        let nx = dx / dist
+        let ny = dy / dist
+        let nz = dz / dist
+
+        let curLocal = spirit.position
+        let curWorld = tracker.convertPosition(curLocal, to: nil)
+        let targetWorld = SCNVector3(curWorld.x + nx * step, curWorld.y + ny * step, curWorld.z + nz * step)
+        let targetLocal = tracker.convertPosition(targetWorld, from: nil)
+        spirit.position = targetLocal
+
+        return dist
+    }
+
+    func removeSpirit() {
+        spiritNode?.removeAllActions()
+        spiritNode?.removeAllParticleSystems()
+        spiritNode?.removeFromParentNode()
+        spiritNode = nil
     }
 
     // MARK: - Private — Threading

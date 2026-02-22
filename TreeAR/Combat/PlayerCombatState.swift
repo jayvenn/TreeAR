@@ -10,13 +10,14 @@ import Foundation
 /// Mutable value type tracking the player's combat stats for one fight session.
 struct PlayerCombatState {
 
-    // MARK: - Base Configuration
+    // MARK: - Configuration
 
     let maxHP: Int = 100
     let baseAttackDamage: Int = 10
     let baseAttackCooldown: TimeInterval = 0.55
     let attackRange: Float = 1.5
     let invulnerabilityDuration: TimeInterval = 1.0
+    let healAmount: Int = 40
 
     // MARK: - Machine Gun Mode
 
@@ -34,19 +35,27 @@ struct PlayerCombatState {
 
     // MARK: - Runtime
 
-    var currentHP: Int = 100
+    private(set) var currentHP: Int
     var lastAttackTime: TimeInterval = 0
-    var isInvulnerable: Bool = false
+    private(set) var isInvulnerable: Bool = false
     private var invulnerabilityTimer: TimeInterval = 0
 
     var isAlive: Bool { currentHP > 0 }
     var hpFraction: Float { Float(currentHP) / Float(maxHP) }
 
-    // MARK: - Mutations
+    // MARK: - Init
 
-    mutating func canAttack(at time: TimeInterval) -> Bool {
+    init() {
+        self.currentHP = maxHP
+    }
+
+    // MARK: - Queries
+
+    func canAttack(at time: TimeInterval) -> Bool {
         time - lastAttackTime >= attackCooldown
     }
+
+    // MARK: - Mutations
 
     mutating func recordAttack(at time: TimeInterval) {
         lastAttackTime = time
