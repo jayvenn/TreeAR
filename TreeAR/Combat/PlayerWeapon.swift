@@ -25,8 +25,8 @@ enum PlayerWeapon {
     private static let gemColor     = UIColor(red: 0.1,  green: 0.4,  blue: 1.0,  alpha: 1)
 
     /// Camera-relative rest position (bottom-right of view, angled).
-    static let restPosition  = SCNVector3(0.12, -0.11, -0.28)
-    static let restEuler     = SCNVector3(-0.2, -0.3, -0.15)
+    static let restPosition  = SCNVector3(0.055, -0.10, -0.22)
+    static let restEuler     = SCNVector3(-0.15, -0.25, -0.12)
 
     // MARK: - Build
 
@@ -43,7 +43,15 @@ enum PlayerWeapon {
         addAmbientParticles(on: root)
 
         root.scale = SCNVector3(0.7, 0.7, 0.7)
+        root.renderingOrder = 200
+        disableDepthRead(on: root)
         return root
+    }
+
+    /// Prevents person-segmentation and world-geometry occlusion from hiding the weapon.
+    private static func disableDepthRead(on node: SCNNode) {
+        node.geometry?.materials.forEach { $0.readsFromDepthBuffer = false }
+        node.childNodes.forEach { disableDepthRead(on: $0) }
     }
 
     // MARK: - Parts

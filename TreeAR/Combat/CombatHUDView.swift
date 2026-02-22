@@ -34,11 +34,6 @@ final class CombatHUDView: UIView {
     private let heartCount = 5
     private let hpPerHeart = 20
 
-    // MARK: - Range
-
-    private let rangeRing = UIView()
-    private let rangeLabel = UILabel()
-
     // MARK: - Effects
 
     private let vignetteTop = GradientView()
@@ -72,7 +67,6 @@ final class CombatHUDView: UIView {
         setupVignette()
         setupBossHP()
         setupPlayerHP()
-        setupRange()
         setupDamageFlash()
         setupPhaseBanner()
         setupPowerupBar()
@@ -132,15 +126,6 @@ final class CombatHUDView: UIView {
                 heart.tintColor = UIColor.white.withAlphaComponent(0.3)
             }
         }
-    }
-
-    func updateRangeIndicator(inRange: Bool) {
-        let color: UIColor = inRange
-            ? UIColor(red: 1.0, green: 0.35, blue: 0.05, alpha: 1)
-            : UIColor.white.withAlphaComponent(0.25)
-        rangeRing.layer.borderColor = color.cgColor
-        rangeLabel.text = inRange ? "STRIKE" : ""
-        rangeLabel.textColor = color
     }
 
     func flashDamage() {
@@ -364,31 +349,6 @@ final class CombatHUDView: UIView {
         NSLayoutConstraint.activate([
             playerHPStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
             playerHPStack.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
-        ])
-    }
-
-    private func setupRange() {
-        rangeRing.translatesAutoresizingMaskIntoConstraints = false
-        rangeRing.layer.borderWidth = 2
-        rangeRing.layer.borderColor = UIColor.white.withAlphaComponent(0.25).cgColor
-        rangeRing.layer.cornerRadius = 22
-        rangeRing.backgroundColor = .clear
-        addSubview(rangeRing)
-
-        rangeLabel.translatesAutoresizingMaskIntoConstraints = false
-        rangeLabel.font = .systemFont(ofSize: 8, weight: .heavy)
-        rangeLabel.textAlignment = .center
-        rangeLabel.textColor = UIColor.white.withAlphaComponent(0.25)
-        addSubview(rangeLabel)
-
-        NSLayoutConstraint.activate([
-            rangeRing.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            rangeRing.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -14),
-            rangeRing.widthAnchor.constraint(equalToConstant: 44),
-            rangeRing.heightAnchor.constraint(equalToConstant: 44),
-
-            rangeLabel.centerXAnchor.constraint(equalTo: rangeRing.centerXAnchor),
-            rangeLabel.topAnchor.constraint(equalTo: rangeRing.bottomAnchor, constant: 2),
         ])
     }
 

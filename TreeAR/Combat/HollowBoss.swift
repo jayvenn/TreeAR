@@ -37,8 +37,6 @@ enum HollowBoss {
         buildLegs(on: root)
         buildCore(on: root)
         buildShoulderArmor(on: root)
-        addAmbientParticles(on: root)
-        addIdleBreathing(on: root)
 
         return root
     }
@@ -88,9 +86,9 @@ enum HollowBoss {
             let glow = SCNLight()
             glow.type = .omni
             glow.color = eyeColor
-            glow.intensity = 200
+            glow.intensity = 80
             glow.attenuationStartDistance = 0
-            glow.attenuationEndDistance = 0.5
+            glow.attenuationEndDistance = 0.3
             eye.light = glow
         }
 
@@ -175,20 +173,16 @@ enum HollowBoss {
         let coreGlow = SCNLight()
         coreGlow.type = .omni
         coreGlow.color = coreColor
-        coreGlow.intensity = 400
+        coreGlow.intensity = 150
         coreGlow.attenuationStartDistance = 0
-        coreGlow.attenuationEndDistance = 1.0
+        coreGlow.attenuationEndDistance = 0.6
         core.light = coreGlow
 
-        let pulse = SCNAction.sequence([
-            .customAction(duration: 1.2) { node, elapsed in
-                let t = elapsed / 1.2
-                let intensity = 0.7 + sin(CGFloat(t) * .pi) * 0.3
-                node.geometry?.firstMaterial?.emission.intensity = intensity
-                node.light?.intensity = 300 + CGFloat(sin(Float(t) * .pi)) * 200
-            }
-        ])
-        core.runAction(.repeatForever(pulse))
+        let pulse = SCNAction.repeatForever(.customAction(duration: 2.0) { node, elapsed in
+            let t = elapsed / 2.0
+            node.geometry?.firstMaterial?.emission.intensity = CGFloat(1.5 + sin(Float(t) * .pi) * 0.5)
+        })
+        core.runAction(pulse)
     }
 
     private static func buildShoulderArmor(on root: SCNNode) {
@@ -205,39 +199,6 @@ enum HollowBoss {
             spike.eulerAngles.z = side * -0.8
             root.addChildNode(spike)
         }
-    }
-
-    private static func addAmbientParticles(on root: SCNNode) {
-        let particleNode = SCNNode()
-        particleNode.position = SCNVector3(0, 1.1, 0)
-
-        let system = SCNParticleSystem()
-        system.birthRate = 15
-        system.particleLifeSpan = 2.0
-        system.particleLifeSpanVariation = 1.0
-        system.particleSize = 0.02
-        system.particleSizeVariation = 0.015
-        system.particleColor = runeColor.withAlphaComponent(0.6)
-        system.particleColorVariation = SCNVector4(0.1, 0.05, 0, 0.3)
-        system.emitterShape = SCNCylinder(radius: 0.6, height: 1.8)
-        system.spreadingAngle = 180
-        system.particleVelocity = 0.05
-        system.particleVelocityVariation = 0.03
-        system.particleAngularVelocity = 90
-        system.blendMode = .additive
-        system.isLightingEnabled = false
-
-        particleNode.addParticleSystem(system)
-        particleNode.name = "ambient_particles"
-        root.addChildNode(particleNode)
-    }
-
-    private static func addIdleBreathing(on root: SCNNode) {
-        let breathe = SCNAction.sequence([
-            .scale(to: 1.02, duration: 1.8),
-            .scale(to: 0.98, duration: 1.8)
-        ])
-        root.runAction(.repeatForever(breathe))
     }
 
     // MARK: - Materials

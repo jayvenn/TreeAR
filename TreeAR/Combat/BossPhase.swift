@@ -37,9 +37,9 @@ enum BossPhase: Int, Comparable {
     /// The boss tries to close to this distance before attacking.
     var engagementRange: Float {
         switch self {
-        case .phase1: return 2.5
-        case .phase2: return 2.2
-        case .phase3: return 1.8
+        case .phase1: return 1.8
+        case .phase2: return 1.6
+        case .phase3: return 1.4
         }
     }
 }

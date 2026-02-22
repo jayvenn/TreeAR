@@ -179,7 +179,6 @@ final class ARViewController: UIViewController {
         combatHUD.updateBossHP(fraction: 1.0, animated: false)
         combatHUD.updatePlayerHP(current: viewModel.playerState.maxHP,
                                  max: viewModel.playerState.maxHP)
-        combatHUD.updateRangeIndicator(inRange: false)
         combatHUD.updateMachineGunTimer(fraction: 0)
         combatHUD.hideRetryPrompt()
     }
@@ -235,7 +234,6 @@ extension ARViewController: ARExperienceViewModelDelegate {
                                   playerDistance: Float) {
         combatHUD.updateBossHP(fraction: bossHPFraction)
         combatHUD.updatePlayerHP(current: playerHP.currentHP, max: playerHP.maxHP)
-        combatHUD.updateRangeIndicator(inRange: playerDistance <= playerHP.attackRange)
 
         if playerHP.isMachineGunActive {
             combatHUD.updateMachineGunTimer(fraction: playerHP.machineGunFraction)

@@ -183,6 +183,14 @@ final class ARExperienceViewModel: NSObject {
         bossCombat.update(deltaTime: dt, playerDistance: dist)
         sceneDirector.updateBossFacing(cameraTransform: cameraTransform)
 
+        if bossCombat.wantsToAdvance {
+            sceneDirector.advanceBossToward(
+                cameraTransform: cameraTransform,
+                speed: bossCombat.phase.moveSpeed,
+                deltaTime: Float(dt)
+            )
+        }
+
         if bossCombat.isExecutingAttack, let attack = bossCombat.currentAttack {
             let inRange = dist <= attack.threatRadius
             let arcOK = !attack.isFrontalOnly ||

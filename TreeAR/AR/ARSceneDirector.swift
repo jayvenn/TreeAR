@@ -154,8 +154,6 @@ final class ARSceneDirector {
         assertMainThread()
         guard let tracker = trackerNode else { return }
 
-        addAtmosphericLighting(on: tracker)
-
         let boss = HollowBoss.buildModel()
         boss.position = SCNVector3(0, -HollowBoss.height, 0)
         boss.opacity = 0
@@ -163,8 +161,6 @@ final class ARSceneDirector {
         self.bossNode = boss
 
         telegraphRenderer.configure(parentNode: boss)
-
-        addSpawnGroundEffect(on: tracker)
 
         boss.runAction(HollowBoss.spawnAnimation(),
                        completionHandler: mainThreadCompletion(completion))
@@ -291,7 +287,7 @@ final class ARSceneDirector {
 
     func playBossHitEffect() {
         guard let boss = bossNode else { return }
-        for child in boss.childNodes where child.name != "eye" && child.name != "ambient_particles" {
+        for child in boss.childNodes where child.name != "eye" {
             child.runAction(HollowBoss.hitFlashAnimation())
         }
         boss.runAction(HollowBoss.hitStaggerAnimation())
@@ -523,47 +519,6 @@ final class ARSceneDirector {
 
         node.addParticleSystem(explosion)
         boss.addChildNode(node)
-    }
-
-    private func addSpawnGroundEffect(on tracker: SCNNode) {
-        let node = SCNNode()
-        node.position = SCNVector3(0, 0.01, 0)
-
-        let crack = SCNParticleSystem()
-        crack.birthRate = 30
-        crack.particleLifeSpan = 2.5
-        crack.particleSize = 0.03
-        crack.particleColor = UIColor(red: 1, green: 0.25, blue: 0.05, alpha: 0.8)
-        crack.emitterShape = SCNCylinder(radius: 0.8, height: 0.01)
-        crack.particleVelocity = 0.3
-        crack.spreadingAngle = 30
-        crack.blendMode = .additive
-        crack.isLightingEnabled = false
-        crack.loops = false
-        crack.emissionDuration = 3.0
-
-        node.addParticleSystem(crack)
-        tracker.addChildNode(node)
-        node.runAction(.sequence([.wait(duration: 5), .removeFromParentNode()]))
-    }
-
-    private func addAtmosphericLighting(on tracker: SCNNode) {
-        let ambientNode = SCNNode()
-        let ambient = SCNLight()
-        ambient.type = .omni
-        ambient.color = UIColor(red: 1, green: 0.15, blue: 0, alpha: 1)
-        ambient.intensity = 150
-        ambient.attenuationStartDistance = 0
-        ambient.attenuationEndDistance = 4.0
-        ambientNode.light = ambient
-        ambientNode.position = SCNVector3(0, 0.5, 0)
-        tracker.addChildNode(ambientNode)
-
-        let fadeUp = SCNAction.customAction(duration: 3.0) { node, elapsed in
-            let t = elapsed / 3.0
-            node.light?.intensity = CGFloat(t) * 150
-        }
-        ambientNode.runAction(fadeUp)
     }
 
     // MARK: - Private — Threading
