@@ -45,7 +45,12 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.alpha = 0
         button.addTarget(self, action: #selector(didTapBegin), for: .touchUpInside)
-        button.contentEdgeInsets = UIEdgeInsets(top: DesignSystem.Spacing.md, left: DesignSystem.Spacing.xl, bottom: DesignSystem.Spacing.md, right: DesignSystem.Spacing.xl)
+        button.contentEdgeInsets = UIEdgeInsets(
+            top: DesignSystem.Spacing.md,
+            left: DesignSystem.Spacing.xl,
+            bottom: DesignSystem.Spacing.md,
+            right: DesignSystem.Spacing.xl
+        )
         DesignSystem.Shadow.applySubtle(to: button)
         return button
     }()
