@@ -9,9 +9,13 @@ import AVFoundation
 
 /// Centralised audio manager.
 ///
-/// All players are pre-loaded at init time on a background thread so that
-/// the first `play(_:)` call incurs zero disk I/O on the main thread.
-/// Missing audio files are silently skipped — the experience degrades gracefully.
+/// - Preloads all tracks and voiceover clips on a background thread at init; playback
+///   incurs no disk I/O on the main thread.
+/// - Playback is dispatched to the main thread (AVAudioPlayer is not thread-safe).
+/// - Call `activateSession()` when starting playback (e.g. when AR experience starts)
+///   so multiple sounds mix correctly. `stopAll()` deactivates the session so other apps
+///   can use audio when the experience ends.
+/// - Missing audio files are silently skipped.
 final class AudioService {
 
     // MARK: - Tracks
@@ -121,47 +125,79 @@ final class AudioService {
     /// Configures and activates the audio session so multiple sounds (music, SFX, VO) mix
     /// without cutting each other off. Call when starting playback (e.g. when AR experience starts).
     func activateSession() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
-        } catch {
-            // Session may already be in use (e.g. by AR); non-fatal.
+        runOnMainIfNeeded {
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+            } catch {
+                // Session may already be in use (e.g. by AR); non-fatal.
+            }
         }
     }
 
     // MARK: - Public API
 
     func play(_ track: Track) {
-        guard let player = players[track] else { return }
-        if player.isPlaying { player.currentTime = 0 }
-        player.play()
+        runOnMainIfNeeded {
+            guard let player = self.players[track] else { return }
+            if player.isPlaying { player.currentTime = 0 }
+            player.play()
+        }
     }
 
     func stop(_ track: Track) {
-        players[track]?.stop()
+        runOnMainIfNeeded {
+            self.players[track]?.stop()
+        }
     }
 
     /// Plays a preloaded voiceover clip, stopping any currently playing VO.
     /// Missing files are silently ignored.
     func playVO(_ vo: Voiceover) {
-        if let active = activeVO { voPlayers[active]?.stop() }
-        guard let player = voPlayers[vo] else { return }
-        player.currentTime = 0
-        player.play()
-        activeVO = vo
-    }
-
-    func stopVO() {
-        if let active = activeVO {
-            voPlayers[active]?.stop()
-            activeVO = nil
+        runOnMainIfNeeded {
+            if let active = self.activeVO { self.voPlayers[active]?.stop() }
+            guard let player = self.voPlayers[vo] else { return }
+            player.currentTime = 0
+            player.play()
+            self.activeVO = vo
         }
     }
 
+    func stopVO() {
+        runOnMainIfNeeded {
+            if let active = self.activeVO {
+                self.voPlayers[active]?.stop()
+                self.activeVO = nil
+            }
+        }
+    }
+
+    /// Duration in seconds of the given voiceover clip (0 if not loaded).
+    /// Call from main thread. Use with tip display so the tip stays up until VO finishes + delay.
+    func voDuration(for vo: Voiceover) -> TimeInterval {
+        voPlayers[vo]?.duration ?? 0
+    }
+
     func stopAll() {
-        players.values.forEach { $0.stop() }
-        stopVO()
+        runOnMainIfNeeded {
+            self.players.values.forEach { $0.stop() }
+            if let active = self.activeVO {
+                self.voPlayers[active]?.stop()
+                self.activeVO = nil
+            }
+            let session = AVAudioSession.sharedInstance()
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+
+    /// Ensures the block runs on the main thread (AVAudioPlayer is not thread-safe).
+    private func runOnMainIfNeeded(_ block: @escaping () -> Void) {
+        if Thread.isMainThread {
+            block()
+        } else {
+            DispatchQueue.main.async(execute: block)
+        }
     }
 
     // MARK: - Private

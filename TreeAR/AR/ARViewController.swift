@@ -25,6 +25,7 @@ final class ARViewController: UIViewController {
     private var weaponAttached = false
     private var playedVOKeys = Set<AudioService.Voiceover>()
     private var pendingDelayWork: [DispatchWorkItem] = []
+    private var arSessionPausedByAppBackground = false
 
     // MARK: - UI
 
@@ -86,10 +87,12 @@ final class ARViewController: UIViewController {
         super.viewDidAppear(animated)
         startARSession()
         viewModel.start()
+        observeAppLifecycle()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        stopObservingAppLifecycle()
         sceneView.delegate = nil
         sceneView.session.pause()
         pendingDelayWork.forEach { $0.cancel() }
@@ -114,6 +117,47 @@ final class ARViewController: UIViewController {
         config.planeDetection = []
         config.environmentTexturing = .automatic
         sceneView.session.run(config, options: [])
+    }
+
+    /// Config used when resuming from app background (no reset). Call from main.
+    private func currentARConfig() -> ARWorldTrackingConfiguration {
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = viewModel.state == .scanning ? .horizontal : []
+        config.environmentTexturing = .automatic
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+            config.frameSemantics.insert(.personSegmentationWithDepth)
+        }
+        return config
+    }
+
+    private func resumeARSession() {
+        guard viewIfLoaded?.window != nil else { return }
+        sceneView.session.run(currentARConfig(), options: [])
+    }
+
+    // MARK: - App lifecycle (avoid GPU work in background)
+
+    private func observeAppLifecycle() {
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(applicationDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        center.addObserver(self, selector: #selector(applicationWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
+
+    private func stopObservingAppLifecycle() {
+        NotificationCenter.default.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIApplication.willEnterForegroundNotification, object: nil)
+    }
+
+    @objc private func applicationDidEnterBackground() {
+        guard viewIfLoaded?.window != nil else { return }
+        arSessionPausedByAppBackground = true
+        sceneView.session.pause()
+    }
+
+    @objc private func applicationWillEnterForeground() {
+        guard arSessionPausedByAppBackground, viewIfLoaded?.window != nil else { return }
+        arSessionPausedByAppBackground = false
+        resumeARSession()
     }
 
     // MARK: - Setup
@@ -198,6 +242,16 @@ final class ARViewController: UIViewController {
         UIView.animate(withDuration: 0.5) { self.combatHUD.alpha = 0 }
     }
 
+    /// Delay after VO finishes before the next tip can show. Prevents overlapping popups/audio.
+    private static let postVODelay: TimeInterval = 1.8
+    private static let minTipDuration: TimeInterval = 3.5
+
+    /// Duration for a tip that has voiceover: VO length + delay, so the next tip waits for audio to finish.
+    private func tipDurationForVO(_ vo: AudioService.Voiceover) -> TimeInterval {
+        let voLen = viewModel.audioService.voDuration(for: vo)
+        return max(Self.minTipDuration, voLen + Self.postVODelay)
+    }
+
     /// Plays a voiceover clip at most once per fight. Mirrors the one-time tip behavior.
     private func playVOOnce(_ vo: AudioService.Voiceover) {
         guard !playedVOKeys.contains(vo) else { return }
@@ -246,14 +300,17 @@ extension ARViewController: ARExperienceViewModelDelegate {
         case .combatActive:
             combatHUD.resetTips()
             playedVOKeys.removeAll()
-            scheduleDelay(2.0) { [weak self] in
-                self?.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack")
-                self?.playVOOnce(.tapAttack)
+            scheduleDelay(3.0) { [weak self] in
+                guard let self else { return }
+                let duration = self.tipDurationForVO(.tapAttack)
+                self.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack", duration: duration)
+                self.playVOOnce(.tapAttack)
             }
         case .spiritChase:
             combatHUD.updateMachineGunTimer(fraction: 0)
             combatHUD.showChaseTimer()
-            combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: 5.0)
+            let spiritDuration = tipDurationForVO(.spiritChase)
+            combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: max(5.0, spiritDuration))
             combatHUD.updateChaseTimer(secondsLeft: 20)
             playVOOnce(.spiritChase)
         case .playerDefeated:
@@ -288,13 +345,13 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
         combatHUD.flashDamage()
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Move away when the ground glows red!", id: "dodge")
+        combatHUD.showTip("Move away when the ground glows red!", id: "dodge", duration: tipDurationForVO(.dodge))
         playVOOnce(.dodge)
     }
 
     func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph")
+        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph", duration: tipDurationForVO(.telegraph))
         playVOOnce(.telegraph)
     }
 
@@ -302,13 +359,15 @@ extension ARViewController: ARExperienceViewModelDelegate {
         combatHUD.showPhaseTransition(phase)
         if phase == .phase2 {
             scheduleDelay(3.0) { [weak self] in
-                self?.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2")
-                self?.playVOOnce(.phase2)
+                guard let self else { return }
+                self.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2", duration: self.tipDurationForVO(.phase2))
+                self.playVOOnce(.phase2)
             }
         } else if phase == .phase3 {
             scheduleDelay(3.0) { [weak self] in
-                self?.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3")
-                self?.playVOOnce(.phase3)
+                guard let self else { return }
+                self.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3", duration: self.tipDurationForVO(.phase3))
+                self.playVOOnce(.phase3)
             }
         }
     }
