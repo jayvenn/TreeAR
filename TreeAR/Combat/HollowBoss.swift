@@ -289,10 +289,19 @@ enum HollowBoss {
         return (left, right)
     }
 
-    static func groundSlamExecuteAnimation() -> (left: SCNAction, right: SCNAction) {
-        let left = SCNAction.rotateTo(x: 0, y: 0, z: 0.15, duration: 0.12)
+    static func groundSlamExecuteAnimation(variant: Int = 0) -> (left: SCNAction, right: SCNAction) {
+        let lz: CGFloat
+        let rz: CGFloat
+        let d: TimeInterval
+        switch variant {
+        case 0: lz = 0.15; rz = 0.15; d = 0.12
+        case 1: lz = 0.18; rz = 0.12; d = 0.14
+        case 2: lz = 0.12; rz = 0.18; d = 0.10
+        default: lz = 0.15; rz = 0.15; d = 0.12
+        }
+        let left = SCNAction.rotateTo(x: 0, y: 0, z: lz, duration: d)
         left.timingMode = .easeIn
-        let right = SCNAction.rotateTo(x: 0, y: 0, z: -0.15, duration: 0.12)
+        let right = SCNAction.rotateTo(x: 0, y: 0, z: -rz, duration: d)
         right.timingMode = .easeIn
         return (left, right)
     }
@@ -303,8 +312,17 @@ enum HollowBoss {
         return pull
     }
 
-    static func sweepExecuteAnimation() -> SCNAction {
-        let swing = SCNAction.rotateTo(x: 0, y: -.pi / 2, z: -.pi / 3, duration: 0.25)
+    static func sweepExecuteAnimation(variant: Int = 0) -> SCNAction {
+        let endY: CGFloat
+        let endZ: CGFloat
+        let d: TimeInterval
+        switch variant {
+        case 0: endY = -.pi / 2; endZ = -.pi / 3; d = 0.25
+        case 1: endY = -.pi / 2.2; endZ = -.pi / 3.5; d = 0.22
+        case 2: endY = -.pi / 1.85; endZ = -.pi / 2.9; d = 0.28
+        default: endY = -.pi / 2; endZ = -.pi / 3; d = 0.25
+        }
+        let swing = SCNAction.rotateTo(x: 0, y: endY, z: endZ, duration: d)
         swing.timingMode = .easeOut
         return swing
     }
@@ -315,8 +333,16 @@ enum HollowBoss {
         return lift
     }
 
-    static func stompExecuteAnimation() -> SCNAction {
-        let slam = SCNAction.move(by: SCNVector3(0, -0.35, 0), duration: 0.1)
+    static func stompExecuteAnimation(variant: Int = 0) -> SCNAction {
+        let dy: CGFloat
+        let d: TimeInterval
+        switch variant {
+        case 0: dy = -0.35; d = 0.10
+        case 1: dy = -0.38; d = 0.08
+        case 2: dy = -0.32; d = 0.12
+        default: dy = -0.35; d = 0.10
+        }
+        let slam = SCNAction.move(by: SCNVector3(0, dy, 0), duration: d)
         slam.timingMode = .easeIn
         return slam
     }

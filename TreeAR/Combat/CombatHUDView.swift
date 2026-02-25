@@ -87,6 +87,11 @@ final class CombatHUDView: UIView {
     private let victorySubtitleLabel = UILabel()
     private let victoryReturnButton = UIButton(type: .system)
 
+    // MARK: - Off-screen indicators (spirit / boss)
+
+    private let spiritIndicator = OffScreenIndicatorView()
+    private let bossIndicator = OffScreenIndicatorView()
+
     // MARK: - Init
 
     override init(frame: CGRect) {
@@ -103,6 +108,7 @@ final class CombatHUDView: UIView {
         setupChaseTimer()
         setupRetry()
         setupVictory()
+        setupOffScreenIndicators()
     }
 
     @available(*, unavailable)
@@ -348,6 +354,42 @@ final class CombatHUDView: UIView {
     func hideChaseTimer() {
         UIView.animate(withDuration: 0.4) { self.chaseBackdrop.alpha = 0 } completion: { _ in
             self.chaseBackdrop.isHidden = true
+        }
+    }
+
+    /// Projected screen points from AR (sceneView coordinates). Nil = not present or on screen; hide indicator.
+    func updateOffScreenIndicators(spiritScreen: CGPoint?, bossScreen: CGPoint?) {
+        layoutIfNeeded()
+        let b = bounds
+        let margin: CGFloat = 44
+        let edgeInset: CGFloat = 36
+        let yMin = margin
+        let yMax = b.height - margin
+
+        updateOneIndicator(spiritIndicator, screen: spiritScreen, bounds: b, edgeInset: edgeInset, yMin: yMin, yMax: yMax)
+        updateOneIndicator(bossIndicator, screen: bossScreen, bounds: b, edgeInset: edgeInset, yMin: yMin, yMax: yMax)
+    }
+
+    private func updateOneIndicator(_ indicator: OffScreenIndicatorView, screen point: CGPoint?, bounds b: CGRect, edgeInset: CGFloat, yMin: CGFloat, yMax: CGFloat) {
+        guard let p = point else {
+            indicator.isHidden = true
+            return
+        }
+        let onScreen = p.x >= 0 && p.x <= b.width && p.y >= 0 && p.y <= b.height
+        if onScreen {
+            indicator.isHidden = true
+            return
+        }
+        indicator.isHidden = false
+        let y = min(yMax, max(yMin, p.y))
+        let w: CGFloat = 28
+        let h: CGFloat = 44
+        if p.x < edgeInset {
+            indicator.pointRight = false
+            indicator.frame = CGRect(x: edgeInset - w / 2, y: y - h / 2, width: w, height: h)
+        } else {
+            indicator.pointRight = true
+            indicator.frame = CGRect(x: b.width - edgeInset - w / 2, y: y - h / 2, width: w, height: h)
         }
     }
 
@@ -728,6 +770,18 @@ final class CombatHUDView: UIView {
 
     @objc private func retryTapped() { onRetryTapped?() }
 
+    private func setupOffScreenIndicators() {
+        let size = CGSize(width: 28, height: 44)
+        for ind in [spiritIndicator, bossIndicator] {
+            ind.bounds = CGRect(origin: .zero, size: size)
+            ind.isHidden = true
+            ind.isUserInteractionEnabled = false
+            addSubview(ind)
+        }
+        spiritIndicator.tintColor = UIColor(red: 1, green: 0.5, blue: 0.1, alpha: 1)
+        bossIndicator.tintColor = UIColor(red: 1, green: 0.35, blue: 0.1, alpha: 1)
+    }
+
     private func setupVictory() {
         victoryContainer.translatesAutoresizingMaskIntoConstraints = false
         victoryContainer.backgroundColor = UIColor.black.withAlphaComponent(0.6)
@@ -790,6 +844,62 @@ final class CombatHUDView: UIView {
         label.layer.shadowOffset = CGSize(width: 0, height: 1)
         label.layer.shadowOpacity = 0.9
         label.layer.shadowRadius = 3
+    }
+}
+
+// MARK: - OffScreenIndicatorView
+
+/// Arrow/chevron shown on the left or right edge when spirit or boss is off-screen.
+final class OffScreenIndicatorView: UIView {
+
+    var pointRight: Bool = true {
+        didSet { setNeedsLayout() }
+    }
+
+    var tintColor: UIColor = .white {
+        didSet { shapeLayer.fillColor = tintColor.cgColor }
+    }
+
+    private let shapeLayer = CAShapeLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        commonInit()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        commonInit()
+    }
+
+    private func commonInit() {
+        layer.addSublayer(shapeLayer)
+        shapeLayer.fillColor = tintColor.cgColor
+        shapeLayer.shadowColor = UIColor.black.cgColor
+        shapeLayer.shadowOffset = CGSize(width: 0, height: 1)
+        shapeLayer.shadowOpacity = 0.8
+        shapeLayer.shadowRadius = 2
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        shapeLayer.frame = bounds
+        let r = bounds.insetBy(dx: 4, dy: 8)
+        let path: UIBezierPath
+        if pointRight {
+            path = UIBezierPath()
+            path.move(to: CGPoint(x: r.minX, y: r.midY))
+            path.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+            path.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+            path.close()
+        } else {
+            path = UIBezierPath()
+            path.move(to: CGPoint(x: r.maxX, y: r.midY))
+            path.addLine(to: CGPoint(x: r.minX, y: r.minY))
+            path.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+            path.close()
+        }
+        shapeLayer.path = path.cgPath
     }
 }
 

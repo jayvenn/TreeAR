@@ -436,10 +436,33 @@ extension ARViewController: ARSCNViewDelegate {
                 self.viewModel.updateCombat(atTime: time, cameraTransform: transform)
             case .spiritChase:
                 self.viewModel.updateSpiritChase(atTime: time, cameraTransform: transform)
+            case .bossDefeated:
+                break
             default:
                 break
             }
+
+            self.updateOffScreenIndicators()
         }
+    }
+
+    private func updateOffScreenIndicators() {
+        let sceneView = self.sceneView
+        var spiritScreen: CGPoint?
+        var bossScreen: CGPoint?
+
+        if let spirit = viewModel.sceneDirector.spiritNode {
+            let world = spirit.worldPosition
+            let projected = sceneView.projectPoint(SCNVector3(world.x, world.y, world.z))
+            spiritScreen = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+        }
+        if let boss = viewModel.sceneDirector.bossNode {
+            let world = boss.worldPosition
+            let projected = sceneView.projectPoint(SCNVector3(world.x, world.y, world.z))
+            bossScreen = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+        }
+
+        combatHUD.updateOffScreenIndicators(spiritScreen: spiritScreen, bossScreen: bossScreen)
     }
 }
 

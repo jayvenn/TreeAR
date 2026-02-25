@@ -24,6 +24,7 @@ final class ARSceneDirector {
     private weak var trackerNode: SCNNode?
     private(set) var bossNode: SCNNode?
     let telegraphRenderer = BossTelegraphRenderer()
+    private var executeAnimationVariant: Int = 0
 
     // MARK: - Spirit Chase
 
@@ -252,19 +253,22 @@ final class ARSceneDirector {
         guard let boss = bossNode else { return }
         telegraphRenderer.flashAndRemoveTelegraphs()
 
+        let variant = executeAnimationVariant % 3
+        executeAnimationVariant += 1
+
         switch attack {
         case .groundSlam:
-            let a = HollowBoss.groundSlamExecuteAnimation()
+            let a = HollowBoss.groundSlamExecuteAnimation(variant: variant)
             boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
             boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         case .sweep:
             boss.childNode(withName: "arm_right", recursively: true)?
-                .runAction(HollowBoss.sweepExecuteAnimation())
+                .runAction(HollowBoss.sweepExecuteAnimation(variant: variant))
         case .stompWave:
             boss.childNode(withName: "leg_left", recursively: true)?
-                .runAction(HollowBoss.stompExecuteAnimation())
+                .runAction(HollowBoss.stompExecuteAnimation(variant: variant))
         case .enragedCombo:
-            let a = HollowBoss.groundSlamExecuteAnimation()
+            let a = HollowBoss.groundSlamExecuteAnimation(variant: variant)
             boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
             boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         }
@@ -599,12 +603,18 @@ final class ARSceneDirector {
         spirit.runAction(hover, forKey: "hover")
 
         let localPos = tracker.convertPosition(worldPosition, from: nil)
-        spirit.position = SCNVector3(localPos.x, localPos.y + 1.2, localPos.z)
+        let riseStartY = localPos.y - 0.4
+        let riseEndY = localPos.y + 1.2
+        spirit.position = SCNVector3(localPos.x, riseStartY, localPos.z)
         spirit.opacity = 0
         tracker.addChildNode(spirit)
         self.spiritNode = spirit
 
-        spirit.runAction(.fadeIn(duration: 1.0))
+        let riseDuration: TimeInterval = 1.8
+        let rise = SCNAction.move(to: SCNVector3(localPos.x, riseEndY, localPos.z), duration: riseDuration)
+        rise.timingMode = .easeOut
+        let fadeIn = SCNAction.fadeIn(duration: riseDuration * 0.5)
+        spirit.runAction(.group([rise, fadeIn]))
     }
 
     /// Plays a bright flash on the spirit to signal a backoff touch.
