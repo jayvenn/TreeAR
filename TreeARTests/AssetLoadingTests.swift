@@ -47,6 +47,27 @@ final class AssetLoadingTests: XCTestCase {
         )
     }
 
+    func testSoundEffectsPresentAndPlayable() {
+        let sfxAssets: [(name: String, ext: String)] = [
+            ("sfx_spirit_ambient", "mp3"),
+            ("sfx_spirit_touch", "mp3"),
+            ("sfx_loot_pickup", "mp3"),
+            ("sfx_victory", "mp3"),
+            ("sfx_player_death", "mp3"),
+            ("sfx_weapon_swing", "mp3"),
+        ]
+        for asset in sfxAssets {
+            guard let url = Bundle.main.url(forResource: asset.name, withExtension: asset.ext) else {
+                XCTFail("\(asset.name).\(asset.ext) not found in app bundle")
+                continue
+            }
+            XCTAssertNoThrow(
+                try AVAudioPlayer(contentsOf: url),
+                "\(asset.name).\(asset.ext) could not be opened by AVAudioPlayer"
+            )
+        }
+    }
+
     // MARK: - SVG
 
     func testAnimatedSproutSVGPresent() {

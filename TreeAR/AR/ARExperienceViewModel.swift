@@ -51,15 +51,16 @@ final class ARExperienceViewModel: NSObject {
 
     // MARK: - Spirit Chase
 
-    private static var chaseDuration: TimeInterval { Constants.isDemoMode ? 28 : 20 }
-    private static var spiritCatchDistance: Float { Constants.isDemoMode ? 0.65 : 0.8 }
-    private static var spiritTouchDamage: Int { Constants.isDemoMode ? 1 : .max }
-    private static var spiritBackoffDuration: TimeInterval { 2.2 }
-    private static var spiritRetreatSpeed: Float { 2.8 }
+    private static let chaseDuration: TimeInterval = 20
+    private static let spiritCatchDistance: Float = 0.8
+    private static let spiritBackoffDuration: TimeInterval = 2.2
+    private static let spiritRetreatSpeed: Float = 2.8
+    private static let spiritBaseSpeed: Float = 1.5
+    private static let spiritMaxSpeed: Float = 3.5
+    /// Damage per spirit touch (nightmare only; demo applies zero).
+    private static let spiritTouchDamage: Int = 25
     private var chaseTimer: TimeInterval = 0
     private var spiritBackoffTimer: TimeInterval = 0
-    private var spiritBaseSpeed: Float { Constants.isDemoMode ? 1.0 : 1.5 }
-    private var spiritMaxSpeed: Float { Constants.isDemoMode ? 2.2 : 3.5 }
 
     // MARK: - State
 
@@ -100,6 +101,7 @@ final class ARExperienceViewModel: NSObject {
 
     func start() {
         assertMainThread()
+        audioService.activateSession()
         audioService.play(.background)
         audioService.play(.moveAround)
         transition(to: .scanning)
@@ -212,12 +214,17 @@ final class ARExperienceViewModel: NSObject {
                 !sceneDirector.isCameraBehindBoss(cameraTransform: cameraTransform)
 
             if inRange && arcOK && !playerState.isInvulnerable {
-                playerState.takeDamage(attack.damage)
-                delegate?.viewModelPlayerDidTakeDamage(self)
-                rigidHaptic.impactOccurred(intensity: 1.0)
-
-                if !playerState.isAlive {
-                    transition(to: .playerDefeated)
+                if Constants.isDemoMode {
+                    delegate?.viewModelPlayerDidTakeDamage(self)
+                    rigidHaptic.impactOccurred(intensity: 1.0)
+                } else {
+                    playerState.takeDamage(attack.damage)
+                    delegate?.viewModelPlayerDidTakeDamage(self)
+                    rigidHaptic.impactOccurred(intensity: 1.0)
+                    if !playerState.isAlive {
+                        audioService.play(.playerDeath)
+                        transition(to: .playerDefeated)
+                    }
                 }
             }
         }
@@ -243,6 +250,7 @@ final class ARExperienceViewModel: NSObject {
 
     private func pickupLoot(type: LootType, named name: String) {
         sceneDirector.pickupLoot(named: name)
+        audioService.play(.lootPickup)
         lightHaptic.impactOccurred(intensity: 1.0)
         delegate?.viewModelPlayerDidPickupLoot(self, type: type)
 
@@ -263,7 +271,7 @@ final class ARExperienceViewModel: NSObject {
             onComplete: { }
         )
         if didSwing {
-            audioService.play(.whiff)
+            audioService.play(.weaponSwing)
         }
     }
 
@@ -273,7 +281,7 @@ final class ARExperienceViewModel: NSObject {
             onComplete: { }
         )
         if didJab {
-            audioService.play(.whiff)
+            audioService.play(.weaponSwing)
         }
     }
 
@@ -290,6 +298,8 @@ final class ARExperienceViewModel: NSObject {
             heavyHaptic.impactOccurred(intensity: 1.0)
             delegate?.viewModelPlayerDidHitBoss(self)
             audioService.play(.hit)
+        } else {
+            audioService.play(.whiff)
         }
     }
 
@@ -350,7 +360,6 @@ extension ARExperienceViewModel: BossCombatDelegate {
 
     func combatManager(_ m: BossCombatManager, bossDidSelectAttack attack: BossAttack) {
         sceneDirector.playTelegraphAnimation(for: attack)
-        audioService.play(.telegraph)
     }
 
     func combatManager(_ m: BossCombatManager, bossDidExecuteAttack attack: BossAttack) {
@@ -387,10 +396,8 @@ extension ARExperienceViewModel: BossCombatDelegate {
         chaseTimer = Self.chaseDuration
         spiritBackoffTimer = 0
         lastUpdateTime = 0
-        if Constants.isDemoMode {
-            playerState.heal(playerState.maxHP - playerState.currentHP)
-        }
         sceneDirector.spawnSpirit(at: position)
+        audioService.play(.spiritAmbient)
         transition(to: .spiritChase)
     }
 
@@ -418,7 +425,7 @@ extension ARExperienceViewModel: BossCombatDelegate {
             )
         } else {
             let progress = Float(1.0 - chaseTimer / Self.chaseDuration)
-            let speed = spiritBaseSpeed + (spiritMaxSpeed - spiritBaseSpeed) * progress
+            let speed = Self.spiritBaseSpeed + (Self.spiritMaxSpeed - Self.spiritBaseSpeed) * progress
 
             let dist = sceneDirector.advanceSpiritToward(
                 cameraTransform: cameraTransform,
@@ -428,26 +435,32 @@ extension ARExperienceViewModel: BossCombatDelegate {
 
             if dist < Self.spiritCatchDistance {
                 if Constants.isDemoMode {
-                    playerState.takeDamage(Self.spiritTouchDamage)
+                    audioService.play(.spiritTouch)
                     rigidHaptic.impactOccurred(intensity: 0.8)
                     delegate?.viewModelPlayerDidTakeDamage(self)
-
+                    sceneDirector.playSpiritBackoffEffect()
+                    spiritBackoffTimer = Self.spiritBackoffDuration
+                } else {
+                    playerState.takeDamage(Self.spiritTouchDamage)
+                    audioService.play(.spiritTouch)
+                    rigidHaptic.impactOccurred(intensity: 0.8)
+                    delegate?.viewModelPlayerDidTakeDamage(self)
+                    sceneDirector.playSpiritBackoffEffect()
+                    spiritBackoffTimer = Self.spiritBackoffDuration
                     if !playerState.isAlive {
+                        audioService.stop(.spiritAmbient)
+                        audioService.play(.playerDeath)
                         sceneDirector.removeSpirit()
                         transition(to: .playerDefeated)
                         return
                     }
-                    sceneDirector.playSpiritBackoffEffect()
-                    spiritBackoffTimer = Self.spiritBackoffDuration
-                } else {
-                    sceneDirector.removeSpirit()
-                    transition(to: .playerDefeated)
-                    return
                 }
             }
         }
 
         if chaseTimer <= 0 {
+            audioService.stop(.spiritAmbient)
+            audioService.play(.victory)
             sceneDirector.removeSpirit()
             transition(to: .victory)
         }

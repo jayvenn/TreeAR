@@ -10,7 +10,7 @@ import Foundation
 /// Mutable value type tracking the player's combat stats for one fight session.
 struct PlayerCombatState {
 
-    // MARK: - Configuration (values from init based on Constants.isDemoMode)
+    // MARK: - Configuration (identical for demo and nightmare; demo applies zero damage so HP never drops)
 
     let maxHP: Int
     let baseAttackDamage: Int
@@ -45,22 +45,13 @@ struct PlayerCombatState {
 
     // MARK: - Init
 
-    init(isDemo: Bool = Constants.isDemoMode) {
-        if isDemo {
-            self.maxHP = 220
-            self.baseAttackDamage = 28
-            self.baseAttackCooldown = 0.45
-            self.attackRange = 1.9
-            self.invulnerabilityDuration = 1.4
-            self.healAmount = 55
-        } else {
-            self.maxHP = 100
-            self.baseAttackDamage = 10
-            self.baseAttackCooldown = 0.55
-            self.attackRange = 1.5
-            self.invulnerabilityDuration = 1.0
-            self.healAmount = 40
-        }
+    init() {
+        self.maxHP = 100
+        self.baseAttackDamage = 10
+        self.baseAttackCooldown = 0.55
+        self.attackRange = 1.5
+        self.invulnerabilityDuration = 1.0
+        self.healAmount = 40
         self.currentHP = maxHP
     }
 

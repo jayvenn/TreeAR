@@ -31,11 +31,26 @@ enum AssetLoader {
     static let audioIntro     = Asset(name: "Intro",          fileExtension: "mp3")
     static let animatedSprout = Asset(name: "AnimatedSprout", fileExtension: "svg")
 
+    // MARK: - Sound effects (spirit chase & feedback)
+
+    static let sfxSpiritAmbient = Asset(name: "sfx_spirit_ambient", fileExtension: "mp3")
+    static let sfxSpiritTouch   = Asset(name: "sfx_spirit_touch",   fileExtension: "mp3")
+    static let sfxLootPickup    = Asset(name: "sfx_loot_pickup",   fileExtension: "mp3")
+    static let sfxVictory       = Asset(name: "sfx_victory",       fileExtension: "mp3")
+    static let sfxPlayerDeath   = Asset(name: "sfx_player_death",  fileExtension: "mp3")
+    static let sfxWeaponSwing   = Asset(name: "sfx_weapon_swing",  fileExtension: "mp3")
+
     // MARK: - All assets
 
     static let allAssets: [Asset] = [
         audioIntro,
         animatedSprout,
+        sfxSpiritAmbient,
+        sfxSpiritTouch,
+        sfxLootPickup,
+        sfxVictory,
+        sfxPlayerDeath,
+        sfxWeaponSwing,
     ]
 
     // MARK: - Validation

@@ -23,7 +23,7 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
     private let sproutView = AnimatedSproutView()
 
     private let difficultySegmentedControl: UISegmentedControl = {
-        let items = ["DEMO", "4REAL"]
+        let items = ["∞ HP", "NIGHTMARE"]
         let control = UISegmentedControl(items: items)
         control.translatesAutoresizingMaskIntoConstraints = false
         control.selectedSegmentIndex = Constants.isDemoMode ? 0 : 1

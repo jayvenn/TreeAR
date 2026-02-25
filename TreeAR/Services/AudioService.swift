@@ -21,40 +21,57 @@ final class AudioService {
         case background
 
         // Combat audio
+        case weaponSwing
         case hit
         case whiff
-        case telegraph
         case bossAttack
         case bossRoar
         case bossIntro
         case bossDefeat
 
+        // Spirit chase & feedback
+        case spiritAmbient
+        case spiritTouch
+        case lootPickup
+        case victory
+        case playerDeath
+
         fileprivate var resource: String {
             switch self {
             case .moveAround:      return "Move around"
             case .background:      return "Echoes of the Emerald"
+            case .weaponSwing:     return "sfx_weapon_swing"
             case .hit:             return "combat_hit"
             case .whiff:           return "combat_whiff"
-            case .telegraph:       return "combat_telegraph"
             case .bossAttack:      return "combat_boss_attack"
             case .bossRoar:        return "combat_boss_roar"
             case .bossIntro:       return "combat_boss_intro"
             case .bossDefeat:      return "combat_boss_defeat"
+            case .spiritAmbient:   return "sfx_spirit_ambient"
+            case .spiritTouch:     return "sfx_spirit_touch"
+            case .lootPickup:     return "sfx_loot_pickup"
+            case .victory:        return "sfx_victory"
+            case .playerDeath:    return "sfx_player_death"
             }
         }
 
         fileprivate var fileExtension: String { "mp3" }
 
         fileprivate var loops: Bool {
-            self == .background
+            self == .background || self == .spiritAmbient
         }
 
         fileprivate var volume: Float {
             switch self {
-            case .background:   return 0.2
-            case .telegraph:    return 0.5
-            case .whiff:        return 0.4
-            default:            return 1.0
+            case .background:     return 0.2
+            case .weaponSwing:   return 0.7
+            case .whiff:         return 0.4
+            case .spiritAmbient: return 0.35
+            case .spiritTouch:   return 0.9
+            case .lootPickup:    return 0.8
+            case .victory:       return 0.9
+            case .playerDeath:   return 0.85
+            default:             return 1.0
             }
         }
     }
@@ -99,6 +116,18 @@ final class AudioService {
 
     init() {
         preloadAll()
+    }
+
+    /// Configures and activates the audio session so multiple sounds (music, SFX, VO) mix
+    /// without cutting each other off. Call when starting playback (e.g. when AR experience starts).
+    func activateSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            // Session may already be in use (e.g. by AR); non-fatal.
+        }
     }
 
     // MARK: - Public API
