@@ -153,6 +153,7 @@ final class AudioService {
     }
 
     /// Plays a preloaded voiceover clip, stopping any currently playing VO.
+    /// Only one VO plays at a time; starting a new one stops the previous. Callers should start VO when the matching tip/overlay is shown so they stay in sync.
     /// Missing files are silently ignored.
     func playVO(_ vo: Voiceover) {
         runOnMainIfNeeded {

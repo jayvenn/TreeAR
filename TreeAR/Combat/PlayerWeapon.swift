@@ -250,25 +250,48 @@ enum PlayerWeapon {
     }
 
     /// Full swing: pull back → slash forward → return to rest.
-    /// The `onApex` closure fires at the moment the blade is at max extension (hit check time).
-    static func swingAnimation(onApex: @escaping () -> Void) -> SCNAction {
+    /// Three visual variants (0, 1, 2) cycle for variety; same hit logic. `onApex` fires at max extension (hit check time).
+    static func swingAnimation(variant: Int = 0, onApex: @escaping () -> Void) -> SCNAction {
+        let v = variant % 3
+        let (windX, windY, windZ, windD): (CGFloat, CGFloat, CGFloat, TimeInterval)
+        let (slashX, slashY, slashZ, slashD): (CGFloat, CGFloat, CGFloat, TimeInterval)
+        let recoverD: TimeInterval
+        switch v {
+        case 0:
+            windX = -0.4; windY = 0.4; windZ = 0.3; windD = 0.08
+            slashX = 0.1; slashY = -0.8; slashZ = -0.4; slashD = 0.1
+            recoverD = 0.25
+        case 1:
+            windX = -0.35; windY = 0.5; windZ = 0.25; windD = 0.07
+            slashX = 0.05; slashY = -0.85; slashZ = -0.35; slashD = 0.11
+            recoverD = 0.22
+        case 2:
+            windX = -0.45; windY = 0.35; windZ = 0.35; windD = 0.09
+            slashX = 0.12; slashY = -0.75; slashZ = -0.45; slashD = 0.095
+            recoverD = 0.26
+        default:
+            windX = -0.4; windY = 0.4; windZ = 0.3; windD = 0.08
+            slashX = 0.1; slashY = -0.8; slashZ = -0.4; slashD = 0.1
+            recoverD = 0.25
+        }
+
         let windUp = SCNAction.group([
-            .rotateTo(x: -0.4, y: 0.4, z: 0.3, duration: 0.08),
-            .move(by: SCNVector3(0.02, 0.03, 0.02), duration: 0.08)
+            .rotateTo(x: windX, y: windY, z: windZ, duration: windD),
+            .move(by: SCNVector3(0.02, 0.03, 0.02), duration: windD)
         ])
         windUp.timingMode = .easeIn
 
         let slash = SCNAction.group([
-            .rotateTo(x: 0.1, y: -0.8, z: -0.4, duration: 0.1),
-            .move(by: SCNVector3(-0.06, -0.02, -0.06), duration: 0.1)
+            .rotateTo(x: slashX, y: slashY, z: slashZ, duration: slashD),
+            .move(by: SCNVector3(-0.06, -0.02, -0.06), duration: slashD)
         ])
         slash.timingMode = .easeOut
 
         let apex = SCNAction.run { _ in onApex() }
 
         let recover = SCNAction.group([
-            .rotateTo(x: CGFloat(restEuler.x), y: CGFloat(restEuler.y), z: CGFloat(restEuler.z), duration: 0.25),
-            .move(to: restPosition, duration: 0.25)
+            .rotateTo(x: CGFloat(restEuler.x), y: CGFloat(restEuler.y), z: CGFloat(restEuler.z), duration: recoverD),
+            .move(to: restPosition, duration: recoverD)
         ])
         recover.timingMode = .easeInEaseOut
 

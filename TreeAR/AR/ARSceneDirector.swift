@@ -24,7 +24,6 @@ final class ARSceneDirector {
     private weak var trackerNode: SCNNode?
     private(set) var bossNode: SCNNode?
     let telegraphRenderer = BossTelegraphRenderer()
-    private var executeAnimationVariant: Int = 0
 
     // MARK: - Spirit Chase
 
@@ -34,6 +33,7 @@ final class ARSceneDirector {
 
     private(set) var weaponNode: SCNNode?
     private var isSwinging = false
+    private var swingAnimationVariant: Int = 0
     private(set) var isMachineGunMode = false
 
     // MARK: - Loot
@@ -126,7 +126,9 @@ final class ARSceneDirector {
         weapon.removeAction(forKey: PlayerWeapon.idleSwayKey)
         PlayerWeapon.spawnSlashTrail(on: weapon)
 
-        let swing = PlayerWeapon.swingAnimation(onApex: { [weak self] in
+        let variant = swingAnimationVariant % 3
+        swingAnimationVariant += 1
+        let swing = PlayerWeapon.swingAnimation(variant: variant, onApex: { [weak self] in
             DispatchQueue.main.async {
                 onApex()
             }
@@ -253,22 +255,19 @@ final class ARSceneDirector {
         guard let boss = bossNode else { return }
         telegraphRenderer.flashAndRemoveTelegraphs()
 
-        let variant = executeAnimationVariant % 3
-        executeAnimationVariant += 1
-
         switch attack {
         case .groundSlam:
-            let a = HollowBoss.groundSlamExecuteAnimation(variant: variant)
+            let a = HollowBoss.groundSlamExecuteAnimation()
             boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
             boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         case .sweep:
             boss.childNode(withName: "arm_right", recursively: true)?
-                .runAction(HollowBoss.sweepExecuteAnimation(variant: variant))
+                .runAction(HollowBoss.sweepExecuteAnimation())
         case .stompWave:
             boss.childNode(withName: "leg_left", recursively: true)?
-                .runAction(HollowBoss.stompExecuteAnimation(variant: variant))
+                .runAction(HollowBoss.stompExecuteAnimation())
         case .enragedCombo:
-            let a = HollowBoss.groundSlamExecuteAnimation(variant: variant)
+            let a = HollowBoss.groundSlamExecuteAnimation()
             boss.childNode(withName: "arm_left", recursively: true)?.runAction(a.left)
             boss.childNode(withName: "arm_right", recursively: true)?.runAction(a.right)
         }

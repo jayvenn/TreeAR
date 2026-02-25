@@ -65,7 +65,8 @@ final class CombatHUDView: UIView {
     private let tipBackdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
     private var tipDismissWork: DispatchWorkItem?
     private var shownTipKeys = Set<String>()
-    private var tipQueue: [(text: String, id: String, duration: TimeInterval)] = []
+    /// Queue: (text, id, duration, onPresent). onPresent is called when this tip is actually shown so overlay and VO stay in sync.
+    private var tipQueue: [(text: String, id: String, duration: TimeInterval, onPresent: (() -> Void)?)] = []
     private var isTipVisible = false
 
     // MARK: - Chase Timer
@@ -279,16 +280,17 @@ final class CombatHUDView: UIView {
 
     /// Shows a one-time tip keyed by `id`. Each `id` displays at most once per fight.
     /// If a tip is already visible, the new one is queued and shown after the current one dismisses.
-    func showTip(_ text: String, id: String, duration: TimeInterval = 3.5) {
+    /// Pass `onPresent` for tips that have associated audio; it is called when this tip is actually shown so VO and overlay stay in sync.
+    func showTip(_ text: String, id: String, duration: TimeInterval = 3.5, onPresent: (() -> Void)? = nil) {
         guard !shownTipKeys.contains(id) else { return }
         shownTipKeys.insert(id)
 
         if isTipVisible {
-            tipQueue.append((text: text, id: id, duration: duration))
+            tipQueue.append((text: text, id: id, duration: duration, onPresent: onPresent))
             return
         }
 
-        presentTip(text: text, duration: duration)
+        presentTip(text: text, duration: duration, onPresent: onPresent)
     }
 
     func resetTips() {
@@ -301,7 +303,7 @@ final class CombatHUDView: UIView {
         tipBackdrop.transform = .identity
     }
 
-    private func presentTip(text: String, duration: TimeInterval) {
+    private func presentTip(text: String, duration: TimeInterval, onPresent: (() -> Void)? = nil) {
         isTipVisible = true
         tipDismissWork?.cancel()
         tipLabel.text = text
@@ -309,6 +311,8 @@ final class CombatHUDView: UIView {
         UIView.animate(withDuration: 0.35, delay: 0, options: .curveEaseOut) {
             self.tipBackdrop.alpha = 1
             self.tipBackdrop.transform = .identity
+        } completion: { _ in
+            onPresent?()
         }
 
         let dismiss = DispatchWorkItem { [weak self] in
@@ -327,7 +331,7 @@ final class CombatHUDView: UIView {
     private func drainTipQueue() {
         guard !tipQueue.isEmpty else { return }
         let next = tipQueue.removeFirst()
-        presentTip(text: next.text, duration: next.duration)
+        presentTip(text: next.text, duration: next.duration, onPresent: next.onPresent)
     }
 
     // MARK: - Chase Timer

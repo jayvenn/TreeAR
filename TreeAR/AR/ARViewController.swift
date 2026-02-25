@@ -259,6 +259,18 @@ final class ARViewController: UIViewController {
         viewModel.audioService.playVO(vo)
     }
 
+    /// Spirit chase tip is shown when we enter spiritChase; VO is delayed so it doesn't cut off boss defeat VO.
+    /// Boss defeat VO starts when we transition to bossDefeated; death animation runs ~4s before we show spirit tip.
+    private func scheduleSpiritChaseVO() {
+        let bossDefeatDuration = viewModel.audioService.voDuration(for: .bossDefeat)
+        let deathAnimationDuration: TimeInterval = 4.0
+        let remainingBossDefeat = max(0, bossDefeatDuration - deathAnimationDuration)
+        let delay = remainingBossDefeat + Self.postVODelay
+        scheduleDelay(delay) { [weak self] in
+            self?.playVOOnce(.spiritChase)
+        }
+    }
+
     /// Schedules a delayed block that is automatically cancelled on dismiss.
     private func scheduleDelay(_ delay: TimeInterval, block: @escaping () -> Void) {
         let item = DispatchWorkItem { [weak self] in
@@ -303,16 +315,18 @@ extension ARViewController: ARExperienceViewModelDelegate {
             scheduleDelay(3.0) { [weak self] in
                 guard let self else { return }
                 let duration = self.tipDurationForVO(.tapAttack)
-                self.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack", duration: duration)
-                self.playVOOnce(.tapAttack)
+                self.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack", duration: duration) { [weak self] in
+                    self?.playVOOnce(.tapAttack)
+                }
             }
         case .spiritChase:
             combatHUD.updateMachineGunTimer(fraction: 0)
             combatHUD.showChaseTimer()
             let spiritDuration = tipDurationForVO(.spiritChase)
-            combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: max(5.0, spiritDuration))
+            combatHUD.showTip("Avoid the spirit. It backs off when it touches you. Survive the timer!", id: "spirit_chase", duration: max(5.0, spiritDuration)) { [weak self] in
+                self?.scheduleSpiritChaseVO()
+            }
             combatHUD.updateChaseTimer(secondsLeft: 20)
-            playVOOnce(.spiritChase)
         case .playerDefeated:
             combatHUD.hideChaseTimer()
             combatHUD.showRetryPrompt()
@@ -345,14 +359,16 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
         combatHUD.flashDamage()
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Move away when the ground glows red!", id: "dodge", duration: tipDurationForVO(.dodge))
-        playVOOnce(.dodge)
+        combatHUD.showTip("Move away when the ground glows red!", id: "dodge", duration: tipDurationForVO(.dodge)) { [weak self] in
+            self?.playVOOnce(.dodge)
+        }
     }
 
     func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph", duration: tipDurationForVO(.telegraph))
-        playVOOnce(.telegraph)
+        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph", duration: tipDurationForVO(.telegraph)) { [weak self] in
+            self?.playVOOnce(.telegraph)
+        }
     }
 
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
@@ -360,14 +376,16 @@ extension ARViewController: ARExperienceViewModelDelegate {
         if phase == .phase2 {
             scheduleDelay(3.0) { [weak self] in
                 guard let self else { return }
-                self.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2", duration: self.tipDurationForVO(.phase2))
-                self.playVOOnce(.phase2)
+                self.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2", duration: self.tipDurationForVO(.phase2)) { [weak self] in
+                    self?.playVOOnce(.phase2)
+                }
             }
         } else if phase == .phase3 {
             scheduleDelay(3.0) { [weak self] in
                 guard let self else { return }
-                self.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3", duration: self.tipDurationForVO(.phase3))
-                self.playVOOnce(.phase3)
+                self.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3", duration: self.tipDurationForVO(.phase3)) { [weak self] in
+                    self?.playVOOnce(.phase3)
+                }
             }
         }
     }
