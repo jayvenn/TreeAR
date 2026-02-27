@@ -103,36 +103,32 @@ final class ARViewController: UIViewController {
     // MARK: - AR Session
 
     private func startARSession() {
-        let config = ARWorldTrackingConfiguration()
-        config.planeDetection = .horizontal
-        config.environmentTexturing = .automatic
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
-            config.frameSemantics.insert(.personSegmentationWithDepth)
-        }
-        sceneView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+        sceneView.session.run(makeARConfig(planeDetection: .horizontal),
+                              options: [.resetTracking, .removeExistingAnchors])
     }
 
     private func lockPlaneDetection() {
-        let config = ARWorldTrackingConfiguration()
-        config.planeDetection = []
-        config.environmentTexturing = .automatic
-        sceneView.session.run(config, options: [])
+        sceneView.session.run(makeARConfig(planeDetection: []), options: [])
     }
 
     /// Config used when resuming from app background (no reset). Call from main.
     private func currentARConfig() -> ARWorldTrackingConfiguration {
-        let config = ARWorldTrackingConfiguration()
-        config.planeDetection = viewModel.state == .scanning ? .horizontal : []
-        config.environmentTexturing = .automatic
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
-            config.frameSemantics.insert(.personSegmentationWithDepth)
-        }
-        return config
+        makeARConfig(planeDetection: viewModel.state == .scanning ? .horizontal : [])
     }
 
     private func resumeARSession() {
         guard viewIfLoaded?.window != nil else { return }
         sceneView.session.run(currentARConfig(), options: [])
+    }
+
+    private func makeARConfig(planeDetection: ARWorldTrackingConfiguration.PlaneDetection) -> ARWorldTrackingConfiguration {
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = planeDetection
+        config.environmentTexturing = .automatic
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+            config.frameSemantics.insert(.personSegmentationWithDepth)
+        }
+        return config
     }
 
     // MARK: - App lifecycle (avoid GPU work in background)
@@ -259,6 +255,13 @@ final class ARViewController: UIViewController {
         viewModel.audioService.playVO(vo)
     }
 
+    /// Shows a contextual tip and plays its voiceover once, sized to the VO duration.
+    private func showTip(_ text: String, id: String, vo: AudioService.Voiceover) {
+        combatHUD.showTip(text, id: id, duration: tipDurationForVO(vo)) { [weak self] in
+            self?.playVOOnce(vo)
+        }
+    }
+
     /// Spirit chase tip is shown when we enter spiritChase; VO is delayed so it doesn't cut off boss defeat VO.
     /// Boss defeat VO starts when we transition to bossDefeated; death animation runs ~4s before we show spirit tip.
     private func scheduleSpiritChaseVO() {
@@ -313,11 +316,7 @@ extension ARViewController: ARExperienceViewModelDelegate {
             combatHUD.resetTips()
             playedVOKeys.removeAll()
             scheduleDelay(3.0) { [weak self] in
-                guard let self else { return }
-                let duration = self.tipDurationForVO(.tapAttack)
-                self.combatHUD.showTip("Tap to swing your sword!", id: "tap_attack", duration: duration) { [weak self] in
-                    self?.playVOOnce(.tapAttack)
-                }
+                self?.showTip("Tap to swing your sword!", id: "tap_attack", vo: .tapAttack)
             }
         case .spiritChase:
             combatHUD.updateMachineGunTimer(fraction: 0)
@@ -359,33 +358,23 @@ extension ARViewController: ARExperienceViewModelDelegate {
     func viewModelPlayerDidTakeDamage(_ vm: ARExperienceViewModel) {
         combatHUD.flashDamage()
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Move away when the ground glows red!", id: "dodge", duration: tipDurationForVO(.dodge)) { [weak self] in
-            self?.playVOOnce(.dodge)
-        }
+        showTip("Move away when the ground glows red!", id: "dodge", vo: .dodge)
     }
 
     func viewModelBossDidAttack(_ vm: ARExperienceViewModel) {
         combatHUD.triggerScreenShake()
-        combatHUD.showTip("Watch for red circles — step back to dodge!", id: "telegraph", duration: tipDurationForVO(.telegraph)) { [weak self] in
-            self?.playVOOnce(.telegraph)
-        }
+        showTip("Watch for red circles — step back to dodge!", id: "telegraph", vo: .telegraph)
     }
 
     func viewModelBossDidEnterPhase(_ vm: ARExperienceViewModel, phase: BossPhase) {
         combatHUD.showPhaseTransition(phase)
         if phase == .phase2 {
             scheduleDelay(3.0) { [weak self] in
-                guard let self else { return }
-                self.combatHUD.showTip("The boss is faster now — stay alert!", id: "phase2", duration: self.tipDurationForVO(.phase2)) { [weak self] in
-                    self?.playVOOnce(.phase2)
-                }
+                self?.showTip("The boss is faster now — stay alert!", id: "phase2", vo: .phase2)
             }
         } else if phase == .phase3 {
             scheduleDelay(3.0) { [weak self] in
-                guard let self else { return }
-                self.combatHUD.showTip("Final phase! Attack between its combos!", id: "phase3", duration: self.tipDurationForVO(.phase3)) { [weak self] in
-                    self?.playVOOnce(.phase3)
-                }
+                self?.showTip("Final phase! Attack between its combos!", id: "phase3", vo: .phase3)
             }
         }
     }
@@ -470,17 +459,34 @@ extension ARViewController: ARSCNViewDelegate {
         var bossScreen: CGPoint?
 
         if let spirit = viewModel.sceneDirector.spiritNode {
-            let world = spirit.worldPosition
-            let projected = sceneView.projectPoint(SCNVector3(world.x, world.y, world.z))
-            spiritScreen = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+            spiritScreen = projectedScreenPoint(for: spirit.worldPosition, in: sceneView)
         }
         if let boss = viewModel.sceneDirector.bossNode {
-            let world = boss.worldPosition
-            let projected = sceneView.projectPoint(SCNVector3(world.x, world.y, world.z))
-            bossScreen = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+            bossScreen = projectedScreenPoint(for: boss.worldPosition, in: sceneView)
         }
 
         combatHUD.updateOffScreenIndicators(spiritScreen: spiritScreen, bossScreen: bossScreen)
+    }
+
+    /// Projects a world position to screen coordinates, correcting for behind-camera points.
+    ///
+    /// `projectPoint` returns z > 1 when the point is behind the camera, and in that case
+    /// x/y are perspective-flipped around screen center. We mirror them back and force the
+    /// result off-screen so the indicator always appears on the correct edge.
+    private func projectedScreenPoint(for worldPos: SCNVector3, in sceneView: ARSCNView) -> CGPoint {
+        let projected = sceneView.projectPoint(worldPos)
+        var pt = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+        if projected.z > 1.0 {
+            let w = sceneView.bounds.width
+            let h = sceneView.bounds.height
+            pt.x = w - pt.x
+            pt.y = h - pt.y
+            // Guarantee off-screen so the indicator always renders for behind-camera targets.
+            if pt.x >= 0 && pt.x <= w {
+                pt.x = pt.x < w / 2 ? -1 : w + 1
+            }
+        }
+        return pt
     }
 }
 

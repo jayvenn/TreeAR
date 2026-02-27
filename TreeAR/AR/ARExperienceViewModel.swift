@@ -47,7 +47,6 @@ final class ARExperienceViewModel: NSObject {
 
     private var lootSpawnTimer: TimeInterval = 0
     private let lootSpawnInterval: ClosedRange<TimeInterval> = 12...20
-    private var wasMachineGunActive = false
 
     // MARK: - Spirit Chase
 
@@ -193,17 +192,14 @@ final class ARExperienceViewModel: NSObject {
                 !sceneDirector.isCameraBehindBoss(cameraTransform: cameraTransform)
 
             if inRange && arcOK && !playerState.isInvulnerable {
-                if Constants.isDemoMode {
-                    delegate?.viewModelPlayerDidTakeDamage(self)
-                    rigidHaptic.impactOccurred(intensity: 1.0)
-                } else {
+                if !Constants.isDemoMode {
                     playerState.takeDamage(attack.damage)
-                    delegate?.viewModelPlayerDidTakeDamage(self)
-                    rigidHaptic.impactOccurred(intensity: 1.0)
-                    if !playerState.isAlive {
-                        audioService.play(.playerDeath)
-                        transition(to: .playerDefeated)
-                    }
+                }
+                delegate?.viewModelPlayerDidTakeDamage(self)
+                rigidHaptic.impactOccurred(intensity: 1.0)
+                if !Constants.isDemoMode && !playerState.isAlive {
+                    audioService.play(.playerDeath)
+                    transition(to: .playerDefeated)
                 }
             }
         }
@@ -300,7 +296,6 @@ final class ARExperienceViewModel: NSObject {
             self.playerState.reset()
             self.bossCombat.reset()
             self.lootSpawnTimer = .random(in: 8...14)
-            self.wasMachineGunActive = false
             self.bossCombat.beginFight()
             self.transition(to: .combatActive)
         }
@@ -413,26 +408,20 @@ extension ARExperienceViewModel: BossCombatDelegate {
             )
 
             if dist < Self.spiritCatchDistance {
-                if Constants.isDemoMode {
-                    audioService.play(.spiritTouch)
-                    rigidHaptic.impactOccurred(intensity: 0.8)
-                    delegate?.viewModelPlayerDidTakeDamage(self)
-                    sceneDirector.playSpiritBackoffEffect()
-                    spiritBackoffTimer = Self.spiritBackoffDuration
-                } else {
+                if !Constants.isDemoMode {
                     playerState.takeDamage(Self.spiritTouchDamage)
-                    audioService.play(.spiritTouch)
-                    rigidHaptic.impactOccurred(intensity: 0.8)
-                    delegate?.viewModelPlayerDidTakeDamage(self)
-                    sceneDirector.playSpiritBackoffEffect()
-                    spiritBackoffTimer = Self.spiritBackoffDuration
-                    if !playerState.isAlive {
-                        audioService.stop(.spiritAmbient)
-                        audioService.play(.playerDeath)
-                        sceneDirector.removeSpirit()
-                        transition(to: .playerDefeated)
-                        return
-                    }
+                }
+                audioService.play(.spiritTouch)
+                rigidHaptic.impactOccurred(intensity: 0.8)
+                delegate?.viewModelPlayerDidTakeDamage(self)
+                sceneDirector.playSpiritBackoffEffect()
+                spiritBackoffTimer = Self.spiritBackoffDuration
+                if !Constants.isDemoMode && !playerState.isAlive {
+                    audioService.stop(.spiritAmbient)
+                    audioService.play(.playerDeath)
+                    sceneDirector.removeSpirit()
+                    transition(to: .playerDefeated)
+                    return
                 }
             }
         }
