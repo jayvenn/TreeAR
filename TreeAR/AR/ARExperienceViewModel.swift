@@ -157,27 +157,6 @@ final class ARExperienceViewModel: NSObject {
         }
     }
 
-    func handleRetry() {
-        assertMainThread()
-        guard state == .playerDefeated else { return }
-
-        playerState.reset()
-        bossCombat.reset()
-        lootSpawnTimer = 0
-        chaseTimer = 0
-        wasMachineGunActive = false
-
-        sceneDirector.removeSpirit()
-        sceneDirector.removeAllLoot()
-        sceneDirector.removeBoss()
-        sceneDirector.deactivateMachineGunMode()
-        sceneDirector.resetWeaponState()
-
-        cancelAllPendingWork()
-
-        beginBossSpawn()
-    }
-
     // MARK: - Per-Frame Combat
 
     func updateCombat(atTime time: TimeInterval, cameraTransform: simd_float4x4) {

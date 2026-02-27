@@ -57,7 +57,7 @@ final class ARViewController: UIViewController {
         hud.translatesAutoresizingMaskIntoConstraints = false
         hud.alpha = 0
         hud.isUserInteractionEnabled = true
-        hud.onRetryTapped = { [weak self] in self?.viewModel.handleRetry() }
+        hud.onRetryTapped = { [weak self] in self?.onDismiss?() }
         hud.onVictoryDismiss = { [weak self] in self?.onDismiss?() }
         return hud
     }()

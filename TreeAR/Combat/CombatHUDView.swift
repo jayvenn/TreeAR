@@ -746,7 +746,7 @@ final class CombatHUDView: UIView {
         retryContainer.addSubview(deathLabel)
 
         retryButton.translatesAutoresizingMaskIntoConstraints = false
-        retryButton.setTitle("  RETRY  ", for: .normal)
+        retryButton.setTitle("  RETURN  ", for: .normal)
         retryButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
         retryButton.setTitleColor(.white, for: .normal)
         retryButton.backgroundColor = UIColor.white.withAlphaComponent(0.18)
@@ -782,8 +782,8 @@ final class CombatHUDView: UIView {
             ind.isUserInteractionEnabled = false
             addSubview(ind)
         }
-        spiritIndicator.tintColor = UIColor(red: 1, green: 0.5, blue: 0.1, alpha: 1)
-        bossIndicator.tintColor = UIColor(red: 1, green: 0.35, blue: 0.1, alpha: 1)
+        spiritIndicator.fillColor = UIColor(red: 1, green: 0.5, blue: 0.1, alpha: 1)
+        bossIndicator.fillColor = UIColor(red: 1, green: 0.35, blue: 0.1, alpha: 1)
     }
 
     private func setupVictory() {
@@ -860,8 +860,8 @@ final class OffScreenIndicatorView: UIView {
         didSet { setNeedsLayout() }
     }
 
-    var tintColor: UIColor = .white {
-        didSet { shapeLayer.fillColor = tintColor.cgColor }
+    var fillColor: UIColor = .white {
+        didSet { shapeLayer.fillColor = fillColor.cgColor }
     }
 
     private let shapeLayer = CAShapeLayer()
@@ -878,7 +878,7 @@ final class OffScreenIndicatorView: UIView {
 
     private func commonInit() {
         layer.addSublayer(shapeLayer)
-        shapeLayer.fillColor = tintColor.cgColor
+        shapeLayer.fillColor = fillColor.cgColor
         shapeLayer.shadowColor = UIColor.black.cgColor
         shapeLayer.shadowOffset = CGSize(width: 0, height: 1)
         shapeLayer.shadowOpacity = 0.8

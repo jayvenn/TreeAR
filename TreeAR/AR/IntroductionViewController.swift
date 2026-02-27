@@ -23,10 +23,10 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
     private let sproutView = AnimatedSproutView()
 
     private let difficultySegmentedControl: UISegmentedControl = {
-        let items = ["∞ HP", "NIGHTMARE"]
+        let items = ["NIGHTMARE", "∞ HP"]
         let control = UISegmentedControl(items: items)
         control.translatesAutoresizingMaskIntoConstraints = false
-        control.selectedSegmentIndex = Constants.isDemoMode ? 0 : 1
+        control.selectedSegmentIndex = Constants.isDemoMode ? 1 : 0
         control.selectedSegmentTintColor = DesignSystem.Colors.primary
         control.setTitleTextAttributes([.foregroundColor: UIColor.white, .font: DesignSystem.Typography.subheadline], for: .selected)
         control.setTitleTextAttributes([.foregroundColor: DesignSystem.Colors.textSecondary, .font: DesignSystem.Typography.subheadline], for: .normal)
@@ -147,7 +147,7 @@ class IntroductionViewController: UIViewController, AVAudioPlayerDelegate {
     }
 
     @objc private func difficultyChanged() {
-        Constants.isDemoMode = (difficultySegmentedControl.selectedSegmentIndex == 0)
+        Constants.isDemoMode = (difficultySegmentedControl.selectedSegmentIndex == 1)
     }
 
     // MARK: - AVAudioPlayerDelegate
